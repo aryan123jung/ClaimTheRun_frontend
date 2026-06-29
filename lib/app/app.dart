@@ -8,7 +8,8 @@ class App extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const SplashScreen(),
+      theme: ThemeData(scaffoldBackgroundColor: const Color(0xFF010B14)),
+      home: const SplashScreen(title: ''),
     );
   }
 }
