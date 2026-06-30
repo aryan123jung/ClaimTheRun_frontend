@@ -1,5 +1,5 @@
 import 'package:clain_the_run/core/constants/app_asset_paths.dart';
-import 'package:clain_the_run/features/auth/presentation/pages/login_screen.dart';
+import 'package:clain_the_run/features/onboardings/presentation/pages/onboardingone.dart';
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -32,7 +32,8 @@ class _SplashScreenState extends State<SplashScreen>
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        // MaterialPageRoute(builder: (context) => const LoginScreen()),
+        MaterialPageRoute(builder: (context) => const OnboardingOne()),
       );
     });
   }
