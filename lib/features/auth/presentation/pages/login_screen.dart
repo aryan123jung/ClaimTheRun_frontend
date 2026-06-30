@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:clain_the_run/features/auth/presentation/widgets/auth_primary_button.dart';
 import 'package:clain_the_run/features/auth/presentation/pages/signup_screen.dart';
 import 'package:clain_the_run/features/auth/presentation/state/auth_state.dart';
@@ -72,15 +74,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: backgroundColor,
       body: Stack(
         children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Center(
+                child: Opacity(
+                  opacity: 0.16,
+                  child: ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 55, sigmaY: 55),
+                    child: Image.asset(
+                      'assets/images/logoHEAD.png',
+                      width: 360,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Positioned(
+          //   top: 85,
+          //   left: 0,
+          //   right: 0,
+          //   child: Center(
+          //     child: Image.asset(
+          //       'assets/images/asv.png',
+          //       // height: 190,
+          //       height: 170,
+          //       fit: BoxFit.contain,
+          //     ),
+          //   ),
+          // ),
           Positioned(
             top: 85,
             left: 0,
             right: 0,
             child: Center(
-              child: Image.asset(
-                'assets/images/asv.png',
-                height: 190,
-                fit: BoxFit.contain,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/logoHEAD.png',
+                    height: 160,
+                    fit: BoxFit.contain,
+                  ),
+                  Image.asset(
+                    'assets/images/logoBODY.png',
+                    height: 90,
+                    fit: BoxFit.contain,
+                  ),
+                ],
               ),
             ),
           ),
@@ -88,7 +131,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           // SizedBox(height: 40),
           Column(
             children: [
-              const SizedBox(height: 300),
+              const SizedBox(height: 280),
 
               // SizedBox(height: 10),
               RichText(
@@ -110,7 +153,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
               const Text(
                 'Login to continue your login journey.',
                 style: TextStyle(

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:clain_the_run/features/auth/presentation/pages/login_screen.dart';
 import 'package:clain_the_run/features/auth/presentation/state/auth_state.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
@@ -79,130 +81,73 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                Center(
-                  child: Image.asset(
-                    'assets/images/asv.png',
-                    height: 180,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                RichText(
-                  text: const TextSpan(
-                    style: TextStyle(
-                      fontSize: 35,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'OpenSans Bold',
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Center(
+                child: Opacity(
+                  opacity: 0.16,
+                  child: ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 55, sigmaY: 55),
+                    child: Image.asset(
+                      'assets/images/logoHEAD.png',
+                      width: 360,
+                      fit: BoxFit.contain,
                     ),
-                    children: [
-                      TextSpan(
-                        text: "Let’s Get ",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      TextSpan(
-                        text: 'Started!',
-                        style: TextStyle(color: accentColor),
-                      ),
-                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Register to start your new journey.',
-                  style: TextStyle(
-                    color: subtitleColor,
-                    fontSize: 16,
-                    fontStyle: FontStyle.italic,
-                    fontFamily: 'OpenSans Italic',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                AuthTextField(
-                  label: 'Full Name',
-                  hintText: 'Enter your fullname',
-                  prefixIcon: Icons.person_outline_rounded,
-                  controller: _fullNameController,
-                  validator: (value) {
-                    if ((value?.trim() ?? '').isEmpty) {
-                      return 'Full name is required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                AuthTextField(
-                  label: 'Email',
-                  hintText: 'Enter your email',
-                  prefixIcon: Icons.mail_outline_rounded,
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    final email = value?.trim() ?? '';
-                    if (email.isEmpty) return 'Email is required';
-                    if (!email.contains('@')) {
-                      return 'Enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                AuthTextField(
-                  label: 'Username',
-                  hintText: 'Enter your username',
-                  prefixIcon: Icons.person_outline_rounded,
-                  controller: _usernameController,
-                  validator: (value) {
-                    final username = value?.trim() ?? '';
-                    if (username.isEmpty) return 'Username is required';
-                    if (username.length < 3) {
-                      return 'Username must be at least 3 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                AuthTextField(
-                  label: 'Password',
-                  hintText: 'Enter your password',
-                  prefixIcon: Icons.lock_outline_rounded,
-                  obscureText: true,
-                  controller: _passwordController,
-                  validator: (value) {
-                    if ((value ?? '').isEmpty) {
-                      return 'Password is required';
-                    }
-                    if ((value ?? '').length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                  suffixIcon: Icon(
-                    Icons.visibility_outlined,
-                    color: accentColor,
-                  ),
-                ),
-                const SizedBox(height: 42),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24),
-                  child: AuthPrimaryButton(
-                    label: 'Register',
-                    onPressed: _register,
-                    isLoading: isLoading,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+              child: Form(
+                key: _formKey,
+                child: Column(
                   children: [
+                    Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/images/logoHEAD.png',
+                            height: 160,
+                            fit: BoxFit.contain,
+                          ),
+                          Image.asset(
+                            'assets/images/logoBODY.png',
+                            height: 90,
+                            fit: BoxFit.contain,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    RichText(
+                      text: const TextSpan(
+                        style: TextStyle(
+                          fontSize: 35,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'OpenSans Bold',
+                        ),
+                        children: [
+                          TextSpan(
+                            text: "Let’s Get ",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          TextSpan(
+                            text: 'Started!',
+                            style: TextStyle(color: accentColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     const Text(
-                      'Already have an account? ',
+                      'Register to start your new journey.',
                       style: TextStyle(
                         color: subtitleColor,
                         fontSize: 16,
@@ -210,35 +155,124 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         fontFamily: 'OpenSans Italic',
                       ),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LoginScreen(),
-                          ),
-                        );
+                    const SizedBox(height: 25),
+                    AuthTextField(
+                      label: 'Full Name',
+                      hintText: 'Enter your fullname',
+                      prefixIcon: Icons.person_outline_rounded,
+                      controller: _fullNameController,
+                      validator: (value) {
+                        if ((value?.trim() ?? '').isEmpty) {
+                          return 'Full name is required';
+                        }
+                        return null;
                       },
-                      style: TextButton.styleFrom(
-                        foregroundColor: accentColor,
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    const SizedBox(height: 12),
+                    AuthTextField(
+                      label: 'Email',
+                      hintText: 'Enter your email',
+                      prefixIcon: Icons.mail_outline_rounded,
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        final email = value?.trim() ?? '';
+                        if (email.isEmpty) return 'Email is required';
+                        if (!email.contains('@')) {
+                          return 'Enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    AuthTextField(
+                      label: 'Username',
+                      hintText: 'Enter your username',
+                      prefixIcon: Icons.person_outline_rounded,
+                      controller: _usernameController,
+                      validator: (value) {
+                        final username = value?.trim() ?? '';
+                        if (username.isEmpty) return 'Username is required';
+                        if (username.length < 3) {
+                          return 'Username must be at least 3 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    AuthTextField(
+                      label: 'Password',
+                      hintText: 'Enter your password',
+                      prefixIcon: Icons.lock_outline_rounded,
+                      obscureText: true,
+                      controller: _passwordController,
+                      validator: (value) {
+                        if ((value ?? '').isEmpty) {
+                          return 'Password is required';
+                        }
+                        if ((value ?? '').length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
+                      suffixIcon: Icon(
+                        Icons.visibility_outlined,
+                        color: accentColor,
                       ),
-                      child: const Text(
-                        'Sign In',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontFamily: 'OpenSans Bold',
+                    ),
+                    const SizedBox(height: 42),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24),
+                      child: AuthPrimaryButton(
+                        label: 'Register',
+                        onPressed: _register,
+                        isLoading: isLoading,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Already have an account? ',
+                          style: TextStyle(
+                            color: subtitleColor,
+                            fontSize: 16,
+                            fontStyle: FontStyle.italic,
+                            fontFamily: 'OpenSans Italic',
+                          ),
                         ),
-                      ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const LoginScreen(),
+                              ),
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: accentColor,
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontFamily: 'OpenSans Bold',
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
