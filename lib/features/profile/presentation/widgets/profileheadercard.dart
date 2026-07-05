@@ -45,7 +45,7 @@ class ProfileHeaderCard extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               CircleAvatar(
-                radius: 42,
+                radius: 50,
                 backgroundImage: NetworkImage(avatarUrl),
               ),
               Positioned(
@@ -132,10 +132,7 @@ class _CountColumn extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF6E6E6E),
-            ),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF6E6E6E)),
           ),
         ],
       ),
@@ -146,10 +143,6 @@ class _CountColumn extends StatelessWidget {
 class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 30,
-      color: const Color(0xFFD8D8D5),
-    );
+    return Container(width: 1, height: 30, color: const Color(0xFFD8D8D5));
   }
 }
