@@ -631,6 +631,65 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     ),
   ];
 
+  final List<GroupLeaderboardEntry> _groupEntries = const [
+    GroupLeaderboardEntry(
+      rank: 1,
+      name: 'Ultimate Runners',
+      avatarUrl: 'https://i.pravatar.cc/150?img=21',
+      membersCount: 8,
+      distanceKm: 2000,
+      time: '15:23:43',
+    ),
+    GroupLeaderboardEntry(
+      rank: 2,
+      name: 'The Runners',
+      avatarUrl: 'https://i.pravatar.cc/150?img=22',
+      membersCount: 8,
+      distanceKm: 2000,
+      time: '15:23:43',
+    ),
+    GroupLeaderboardEntry(
+      rank: 3,
+      name: 'Motivated Boys',
+      avatarUrl: 'https://i.pravatar.cc/150?img=23',
+      membersCount: 8,
+      distanceKm: 2000,
+      time: '15:23:43',
+    ),
+    GroupLeaderboardEntry(
+      rank: 4,
+      name: 'Lost in peace',
+      avatarUrl: 'https://i.pravatar.cc/150?img=24',
+      membersCount: 8,
+      distanceKm: 2000,
+      time: '15:23:43',
+    ),
+    GroupLeaderboardEntry(
+      rank: 5,
+      name: 'Wonder Women',
+      avatarUrl: 'https://i.pravatar.cc/150?img=25',
+      membersCount: 8,
+      distanceKm: 2000,
+      time: '15:23:43',
+    ),
+    GroupLeaderboardEntry(
+      rank: 6,
+      name: 'The Him',
+      avatarUrl: 'https://i.pravatar.cc/150?img=26',
+      membersCount: 8,
+      distanceKm: 2000,
+      time: '15:23:43',
+    ),
+    GroupLeaderboardEntry(
+      rank: 7,
+      name: 'Unstoppable',
+      avatarUrl: 'https://i.pravatar.cc/150?img=27',
+      membersCount: 8,
+      distanceKm: 2000,
+      time: '15:23:43',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -711,11 +770,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                itemCount: _entries.length,
+                itemCount: _mode == LeaderboardMode.solo
+                    ? _entries.length
+                    : _groupEntries.length,
                 itemBuilder: (context, index) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4),
-                    child: LeaderboardCard(entry: _entries[index]),
+                    child: _mode == LeaderboardMode.solo
+                        ? LeaderboardCard(entry: _entries[index])
+                        : GroupLeaderboardCard(entry: _groupEntries[index]),
                   );
                 },
               ),
