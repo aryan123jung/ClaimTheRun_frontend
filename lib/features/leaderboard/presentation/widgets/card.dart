@@ -56,7 +56,7 @@ class LeaderboardCard extends StatelessWidget {
     final medal = _medalEmoji[entry.rank]!;
 
     return Container(
-      height: 76,
+      height: 84,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: Colors.white,
@@ -98,6 +98,7 @@ class LeaderboardCard extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -138,8 +139,8 @@ class LeaderboardCard extends StatelessWidget {
     final highlight = entry.isCurrentUser;
 
     return Container(
-      height: 68,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      height: 84,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: highlight ? brandGreen.withValues(alpha: 0.08) : Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -184,15 +185,30 @@ class LeaderboardCard extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Text(
-              entry.name,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
-                color: const Color(0xFF111111),
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.name,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
+                    color: const Color(0xFF111111),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entry.time,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9A9A9A),
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: 8),
           Text(
             '${entry.distanceKm.toStringAsFixed(0)} km',
             style: TextStyle(
