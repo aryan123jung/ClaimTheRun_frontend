@@ -5,6 +5,7 @@ import 'package:clain_the_run/features/auth/presentation/pages/signup_screen.dar
 import 'package:clain_the_run/features/auth/presentation/state/auth_state.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/auth/presentation/widgets/auth_text_field.dart';
+import 'package:clain_the_run/features/dashboard/presentation/pages/dashboard.dart';
 import 'package:clain_the_run/features/forgotpassword/presentation/pages/forgotpassword.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,6 +68,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           SnackBar(
             content: Text('Welcome back, ${next.authEntity?.fullname ?? ''}'),
           ),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
         );
       }
     });
