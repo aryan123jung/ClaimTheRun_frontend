@@ -690,6 +690,59 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     ),
   ];
 
+  final List<LeaderboardEntry> _friendEntries = const [
+    LeaderboardEntry(
+      rank: 1,
+      name: 'Sujan Thapa',
+      avatarUrl: 'https://i.pravatar.cc/150?img=31',
+      distanceKm: 1980,
+      time: '14:18:31',
+    ),
+    LeaderboardEntry(
+      rank: 2,
+      name: 'Prashant Karki',
+      avatarUrl: 'https://i.pravatar.cc/150?img=32',
+      distanceKm: 1920,
+      time: '14:55:12',
+    ),
+    LeaderboardEntry(
+      rank: 3,
+      name: 'Nabin Gautam',
+      avatarUrl: 'https://i.pravatar.cc/150?img=33',
+      distanceKm: 1880,
+      time: '15:01:09',
+    ),
+    LeaderboardEntry(
+      rank: 4,
+      name: 'Aakriti Bista',
+      avatarUrl: 'https://i.pravatar.cc/150?img=34',
+      distanceKm: 1820,
+      time: '15:12:40',
+    ),
+    LeaderboardEntry(
+      rank: 5,
+      name: 'Sajal Neupane',
+      avatarUrl: 'https://i.pravatar.cc/150?img=35',
+      distanceKm: 1760,
+      time: '15:20:51',
+    ),
+    LeaderboardEntry(
+      rank: 6,
+      name: 'You',
+      avatarUrl: 'https://i.pravatar.cc/150?img=17',
+      distanceKm: 1725,
+      time: '15:23:43',
+      isCurrentUser: true,
+    ),
+    LeaderboardEntry(
+      rank: 7,
+      name: 'Ritesh Khadka',
+      avatarUrl: 'https://i.pravatar.cc/150?img=36',
+      distanceKm: 1690,
+      time: '15:39:18',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -721,7 +774,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   _SegmentedToggle<LeaderboardScope>(
                     height: 40,
                     value: _scope,
-                    onChanged: (value) => setState(() => _scope = value),
+                    onChanged: (value) => setState(() {
+                      _scope = value;
+                      if (value == LeaderboardScope.friends) {
+                        _mode = LeaderboardMode.solo;
+                      }
+                    }),
                     options: const [
                       _SegmentOption(
                         value: LeaderboardScope.global,
@@ -737,53 +795,128 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     activeColor: _activeTextGreen,
                   ),
                   const SizedBox(height: 20),
-                  // Solo/Group sits centered under Global/Friends rather
-                  // than left-aligned, since it reads as a secondary
-                  // filter for the whole list below, not tied to one side.
                   Center(
-                    child: SizedBox(
-                      width: 150,
-                      child: _SegmentedToggle<LeaderboardMode>(
-                        height: 34,
-                        value: _mode,
-                        onChanged: (value) => setState(() => _mode = value),
-                        compact: true,
-                        activeColor: Colors.white,
-                        activeBackground: _brandGreen,
-                        options: const [
-                          _SegmentOption(
-                            value: LeaderboardMode.solo,
-                            label: 'Solo',
-                          ),
-                          _SegmentOption(
-                            value: LeaderboardMode.group,
-                            label: 'Group',
-                          ),
-                        ],
-                      ),
-                    ),
+                    child: _scope == LeaderboardScope.global
+                        ? SizedBox(
+                            width: 150,
+                            child: _SegmentedToggle<LeaderboardMode>(
+                              height: 34,
+                              value: _mode,
+                              onChanged: (value) =>
+                                  setState(() => _mode = value),
+                              compact: true,
+                              activeColor: Colors.white,
+                              activeBackground: _brandGreen,
+                              options: const [
+                                _SegmentOption(
+                                  value: LeaderboardMode.solo,
+                                  label: 'Solo',
+                                ),
+                                _SegmentOption(
+                                  value: LeaderboardMode.group,
+                                  label: 'Group',
+                                ),
+                              ],
+                            ),
+                          )
+                        : const _SoloOnlyChip(),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 30),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                itemCount: _mode == LeaderboardMode.solo
-                    ? _entries.length
-                    : _groupEntries.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: _mode == LeaderboardMode.solo
-                        ? LeaderboardCard(entry: _entries[index])
-                        : GroupLeaderboardCard(entry: _groupEntries[index]),
-                  );
-                },
-              ),
+              child: _scope == LeaderboardScope.global
+                  ? _GlobalLeaderboardView(
+                      mode: _mode,
+                      entries: _entries,
+                      groupEntries: _groupEntries,
+                    )
+                  : _FriendsLeaderboardView(entries: _friendEntries),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GlobalLeaderboardView extends StatelessWidget {
+  const _GlobalLeaderboardView({
+    required this.mode,
+    required this.entries,
+    required this.groupEntries,
+  });
+
+  final LeaderboardMode mode;
+  final List<LeaderboardEntry> entries;
+  final List<GroupLeaderboardEntry> groupEntries;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      itemCount: mode == LeaderboardMode.solo
+          ? entries.length
+          : groupEntries.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: mode == LeaderboardMode.solo
+              ? GlobalSoloLeaderboardCard(entry: entries[index])
+              : GlobalGroupLeaderboardCard(entry: groupEntries[index]),
+        );
+      },
+    );
+  }
+}
+
+class _FriendsLeaderboardView extends StatelessWidget {
+  const _FriendsLeaderboardView({required this.entries});
+
+  final List<LeaderboardEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: FriendsLeaderboardCard(entry: entries[index]),
+        );
+      },
+    );
+  }
+}
+
+class _SoloOnlyChip extends StatelessWidget {
+  const _SoloOnlyChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: _LeaderboardScreenState._brandGreen,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: _LeaderboardScreenState._brandGreen.withValues(alpha: 0.24),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: const Text(
+        'Solo',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
         ),
       ),
     );
