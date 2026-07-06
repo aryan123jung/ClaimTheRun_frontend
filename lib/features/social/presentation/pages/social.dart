@@ -1,6 +1,7 @@
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
+import 'package:clain_the_run/features/social/presentation/widgets/create_group_popup.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/create_post_popup.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/groupcard.dart';
@@ -187,7 +188,7 @@ class _SocialScreenState extends State<SocialScreen>
                     _OutlinedActionButton(
                       icon: Icons.group_add_rounded,
                       label: 'Create Group',
-                      onTap: () {},
+                      onTap: () => showCreateGroupPopup(context),
                     ),
                   ],
                 ],
