@@ -1,3 +1,4 @@
+import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
@@ -164,7 +165,15 @@ class _SocialScreenState extends State<SocialScreen>
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _MessagesButton(onTap: () {}),
+                  _MessagesButton(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const MessagesScreen(),
+                        ),
+                      );
+                    },
+                  ),
                   if (_tabController.index == 1) ...[
                     const SizedBox(width: 8),
                     _OutlinedActionButton(
