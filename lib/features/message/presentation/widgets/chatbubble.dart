@@ -30,8 +30,9 @@ class ChatBubble extends StatelessWidget {
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           Container(
             constraints: BoxConstraints(
@@ -62,19 +63,14 @@ class ChatBubble extends StatelessWidget {
             children: [
               Text(
                 message.timestamp,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF9A9A9A),
-                ),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9A9A9A)),
               ),
               if (isMine) ...[
                 const SizedBox(width: 4),
                 Icon(
                   Icons.done_all_rounded,
                   size: 14,
-                  color: message.isRead
-                      ? _brandGreen
-                      : const Color(0xFF9A9A9A),
+                  color: message.isRead ? _brandGreen : const Color(0xFF9A9A9A),
                 ),
               ],
             ],

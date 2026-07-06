@@ -92,14 +92,25 @@ class ProfileHeaderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _CountColumn(value: runCount, label: 'Runs'),
-                    _Divider(),
-                    _CountColumn(value: territoryCount, label: 'Territories'),
-                    _Divider(),
-                    _CountColumn(value: postCount, label: 'Posts'),
-                  ],
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAFAF8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFEAEAE6)),
+                  ),
+                  child: Row(
+                    children: [
+                      _CountColumn(value: runCount, label: 'Runs'),
+                      _Divider(),
+                      _CountColumn(value: territoryCount, label: 'Territories'),
+                      _Divider(),
+                      _CountColumn(value: postCount, label: 'Posts'),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -124,15 +135,15 @@ class _CountColumn extends StatelessWidget {
           Text(
             '$value',
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
               color: Color(0xFF111111),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6E6E6E)),
+            style: const TextStyle(fontSize: 11, color: Color(0xFF909090)),
           ),
         ],
       ),
@@ -143,6 +154,6 @@ class _CountColumn extends StatelessWidget {
 class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, height: 30, color: const Color(0xFFD8D8D5));
+    return Container(width: 1, height: 44, color: const Color(0xFFE3E3E0));
   }
 }

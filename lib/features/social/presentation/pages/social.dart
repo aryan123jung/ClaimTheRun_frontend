@@ -1,5 +1,5 @@
+import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
-import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/groupcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
@@ -164,16 +164,7 @@ class _SocialScreenState extends State<SocialScreen>
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _MessagesButton(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MessagesScreen(),
-                        ),
-                      );
-                    },
-                  ),
+                  _MessagesButton(onTap: () {}),
                   if (_tabController.index == 1) ...[
                     const SizedBox(width: 8),
                     _OutlinedActionButton(
@@ -291,12 +282,124 @@ class _FriendsTab extends StatelessWidget {
             itemCount: friends.length,
             separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
-              return FriendCard(friend: friends[index]);
+              final friend = friends[index];
+
+              return FriendCard(
+                friend: friend,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => FriendProfileScreen(
+                        friend: friend,
+                        bio: _friendBio(friend.name),
+                        totalRuns: _friendRuns(friend.name),
+                        postCount: _friendPosts(friend.name).length,
+                        posts: _friendPosts(friend.name),
+                      ),
+                    ),
+                  );
+                },
+              );
             },
           ),
         ),
       ],
     );
+  }
+}
+
+String _friendBio(String friendName) {
+  switch (friendName) {
+    case 'Ram Khadka':
+      return 'Just chilllll guysss';
+    case 'Aarav Sharma':
+      return 'Always down for an early morning run.';
+    case 'Riya Thapa':
+      return 'Coffee, cardio, and chasing better pace.';
+    case 'Kiran Gurung':
+      return 'Territory hunter and weekend long-run specialist.';
+    case 'Anjali Rai':
+      return 'Running helps me reset and refocus.';
+    default:
+      return 'Runner. Explorer. Teammate.';
+  }
+}
+
+int _friendRuns(String friendName) {
+  switch (friendName) {
+    case 'Ram Khadka':
+      return 20;
+    case 'Aarav Sharma':
+      return 16;
+    case 'Riya Thapa':
+      return 24;
+    case 'Kiran Gurung':
+      return 18;
+    case 'Anjali Rai':
+      return 29;
+    default:
+      return 12;
+  }
+}
+
+List<PostModel> _friendPosts(String friendName) {
+  switch (friendName) {
+    case 'Ram Khadka':
+      return const [
+        PostModel(
+          authorName: 'Ram Khadka',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
+          timestamp: 'Today, 7:15 AM',
+          caption: "How's the view???",
+          imageUrl:
+              'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800',
+          likeCount: 23,
+          commentCount: 23,
+        ),
+        PostModel(
+          authorName: 'Ram Khadka',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
+          timestamp: 'Today, 7:15 AM',
+          caption: 'Recovery jog done. Feeling fresh for tomorrow.',
+          likeCount: 11,
+          commentCount: 6,
+        ),
+      ];
+    case 'Aarav Sharma':
+      return const [
+        PostModel(
+          authorName: 'Aarav Sharma',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=13',
+          timestamp: 'Today, 6:45 AM',
+          caption: 'Quick speed session before class.',
+          likeCount: 9,
+          commentCount: 4,
+        ),
+      ];
+    case 'Riya Thapa':
+      return const [
+        PostModel(
+          authorName: 'Riya Thapa',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=26',
+          timestamp: 'Yesterday, 7:20 AM',
+          caption: 'Morning run around the lake',
+          imageUrl:
+              'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
+          likeCount: 14,
+          commentCount: 6,
+        ),
+      ];
+    default:
+      return const [
+        PostModel(
+          authorName: 'Friend Post',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=30',
+          timestamp: 'Today',
+          caption: 'Another good day to run.',
+          likeCount: 4,
+          commentCount: 1,
+        ),
+      ];
   }
 }
 

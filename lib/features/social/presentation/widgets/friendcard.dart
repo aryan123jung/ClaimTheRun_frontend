@@ -20,11 +20,13 @@ class FriendCard extends StatelessWidget {
   const FriendCard({
     super.key,
     required this.friend,
+    this.onTap,
     this.onMessage,
     this.onMorePressed,
   });
 
   final FriendModel friend;
+  final VoidCallback? onTap;
   final VoidCallback? onMessage;
   final VoidCallback? onMorePressed;
 
@@ -32,88 +34,95 @@ class FriendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEDEDEA)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFEDEDEA)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundImage: NetworkImage(friend.avatarUrl),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  friend.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF111111),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${friend.totalKm.toStringAsFixed(0)} km total',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF9A9A9A),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundImage: NetworkImage(friend.avatarUrl),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: _brandGreen,
-                        shape: BoxShape.circle,
+                    Text(
+                      friend.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF111111),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(height: 3),
                     Text(
-                      'Territories: ${friend.territories}',
+                      '${friend.totalKm.toStringAsFixed(0)} km total',
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF6E6E6E),
+                        color: Color(0xFF9A9A9A),
                       ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: _brandGreen,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Territories: ${friend.territories}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6E6E6E),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              _CircleIconButton(
+                icon: Icons.chat_bubble_rounded,
+                backgroundColor: _brandGreen.withValues(alpha: 0.65),
+                iconColor: Colors.white,
+                onTap: onMessage,
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                onPressed: onMorePressed,
+                icon: const Icon(
+                  Icons.more_horiz_rounded,
+                  size: 20,
+                  color: Color(0xFF6E6E6E),
+                ),
+                splashRadius: 18,
+              ),
+            ],
           ),
-          _CircleIconButton(
-            icon: Icons.chat_bubble_rounded,
-            backgroundColor: _brandGreen.withValues(alpha: 0.65),
-            iconColor: Colors.white,
-            onTap: onMessage,
-          ),
-          const SizedBox(width: 6),
-          IconButton(
-            onPressed: onMorePressed,
-            icon: const Icon(
-              Icons.more_horiz_rounded,
-              size: 20,
-              color: Color(0xFF6E6E6E),
-            ),
-            splashRadius: 18,
-          ),
-        ],
+        ),
       ),
     );
   }
