@@ -1,3 +1,5 @@
+import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
+import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/groupcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
@@ -162,7 +164,16 @@ class _SocialScreenState extends State<SocialScreen>
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _MessagesButton(onTap: () {}),
+                  _MessagesButton(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MessagesScreen(),
+                        ),
+                      );
+                    },
+                  ),
                   if (_tabController.index == 1) ...[
                     const SizedBox(width: 8),
                     _OutlinedActionButton(
@@ -278,7 +289,7 @@ class _FriendsTab extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
             itemCount: friends.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               return FriendCard(friend: friends[index]);
             },
@@ -326,14 +337,118 @@ class _GroupsTab extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
             itemCount: groups.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
-              return GroupCard(group: groups[index]);
+              final group = groups[index];
+
+              return GroupCard(
+                group: group,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => GroupProfileScreen(
+                        group: group,
+                        description: _groupDescription(group.name),
+                        postCount: _groupPosts(group.name).length,
+                        posts: _groupPosts(group.name),
+                      ),
+                    ),
+                  );
+                },
+              );
             },
           ),
         ),
       ],
     );
+  }
+}
+
+String _groupDescription(String groupName) {
+  switch (groupName) {
+    case 'The Runners':
+      return 'Feel free to explore with us. We run, share routes, and push each other forward.';
+    case 'Ultimate Runners':
+      return 'Built for runners who love consistency, long miles, and weekend challenges together.';
+    case 'Motivated Boys':
+      return 'A small but relentless crew focused on staying accountable and getting stronger.';
+    case 'Lost In Pace':
+      return 'From easy jogs to hard efforts, this group is all about finding your rhythm.';
+    case 'Wonder Women':
+      return 'Supportive, strong, and always moving. A space for uplifting every member on the run.';
+    default:
+      return 'Run farther together and keep each other moving.';
+  }
+}
+
+List<PostModel> _groupPosts(String groupName) {
+  switch (groupName) {
+    case 'The Runners':
+      return const [
+        PostModel(
+          authorName: 'Aryan Jung Chhetri',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=11',
+          timestamp: 'Today, 7:15 AM',
+          caption: "How's the view???",
+          imageUrl:
+              'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800',
+          likeCount: 7,
+          commentCount: 2,
+        ),
+        PostModel(
+          authorName: 'Anjali Khadka',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=25',
+          timestamp: 'Yesterday, 7:15 AM',
+          caption: 'Just ran a 10km run!',
+          likeCount: 2,
+          commentCount: 5,
+        ),
+        PostModel(
+          authorName: 'Riya Kapoor',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=26',
+          timestamp: 'May 17, 7:15 AM',
+          caption: 'Morning run around the lake',
+          imageUrl:
+              'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
+          likeCount: 9,
+          commentCount: 4,
+        ),
+      ];
+    case 'Ultimate Runners':
+      return const [
+        PostModel(
+          authorName: 'Ram Khadka',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
+          timestamp: 'Today, 6:10 AM',
+          caption: 'Sunrise tempo run with the crew.',
+          imageUrl:
+              'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=800',
+          likeCount: 11,
+          commentCount: 3,
+        ),
+      ];
+    case 'Motivated Boys':
+      return const [
+        PostModel(
+          authorName: 'Aarav Sharma',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=13',
+          timestamp: 'Today, 8:04 AM',
+          caption: 'No excuses today. Hill repeats done.',
+          likeCount: 5,
+          commentCount: 1,
+        ),
+      ];
+    default:
+      return const [
+        PostModel(
+          authorName: 'Group Admin',
+          authorAvatarUrl: 'https://i.pravatar.cc/150?img=18',
+          timestamp: 'Today',
+          caption: 'Welcome to the group. More updates coming soon.',
+          likeCount: 3,
+          commentCount: 0,
+        ),
+      ];
   }
 }
 
