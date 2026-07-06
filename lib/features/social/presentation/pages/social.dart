@@ -1,6 +1,7 @@
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
+import 'package:clain_the_run/features/social/presentation/widgets/create_post_popup.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/groupcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
@@ -591,32 +592,38 @@ class _PostComposer extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F7F5),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              alignment: Alignment.centerLeft,
-              child: const Text(
-                "What's on your run today?",
-                style: TextStyle(fontSize: 13, color: Color(0xFF9A9A9A)),
+            child: GestureDetector(
+              onTap: () => showCreatePostPopup(context),
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F7F5),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  "What's on your run today?",
+                  style: TextStyle(fontSize: 13, color: Color(0xFF9A9A9A)),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.image_outlined,
-              size: 19,
-              color: Color(0xFF6E6E6E),
+          GestureDetector(
+            onTap: () => showCreatePostPopup(context),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F7F5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.image_outlined,
+                size: 19,
+                color: Color(0xFF6E6E6E),
+              ),
             ),
           ),
         ],
