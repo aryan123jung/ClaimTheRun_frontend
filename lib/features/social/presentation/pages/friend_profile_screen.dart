@@ -1,3 +1,4 @@
+import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profilestattile.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/statsheet.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
@@ -74,7 +75,19 @@ class FriendProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  _HeaderMessageButton(onTap: () {}),
+                  _HeaderMessageButton(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ChatScreen(
+                            name: friend.name,
+                            avatarUrl: friend.avatarUrl,
+                            isOnline: true,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
