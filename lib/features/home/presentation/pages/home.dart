@@ -132,24 +132,18 @@ class _HomeHeader extends StatelessWidget {
               ),
             );
           },
-          child: const Icon(
-            Icons.notifications_none_rounded,
-            size: 28,
-            color: Color(0xFF2A2430),
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF56B846), width: 1.5),
-            image: const DecorationImage(
-              image: AssetImage('assets/images/asv.png'),
-              fit: BoxFit.cover,
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFE3E3DF)),
+            ),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              size: 24,
+              color: Color(0xFF2A2430),
             ),
           ),
         ),
