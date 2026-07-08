@@ -1,3 +1,5 @@
+import 'package:clain_the_run/features/addfriend/presentation/pages/addfriendscreen.dart';
+import 'package:clain_the_run/features/addfriend/presentation/pages/friend_requests_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
@@ -181,7 +183,13 @@ class _SocialScreenState extends State<SocialScreen>
                     _OutlinedActionButton(
                       icon: Icons.person_add_alt_1_rounded,
                       label: 'Add Friend',
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const AddFriendScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ] else if (_tabController.index == 2) ...[
                     const SizedBox(width: 8),
@@ -280,6 +288,24 @@ class _FriendsTab extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const FriendRequestsScreen(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Friend Requests',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF3B6D11),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
               Text(
                 'Total Friends: ${friends.length}',
                 style: const TextStyle(fontSize: 13, color: Color(0xFF9A9A9A)),
