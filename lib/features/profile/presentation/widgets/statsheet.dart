@@ -202,10 +202,12 @@ Future<void> showAllStatsSheet(
   BuildContext context, {
   required List<ProfileStatModel> stats,
 }) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: isDark ? const Color(0xFF111C26) : Colors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
@@ -233,7 +235,9 @@ Future<void> showAllStatsSheet(
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 18),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD8D8D5),
+                      color: isDark
+                          ? const Color(0xFF233241)
+                          : const Color(0xFFD8D8D5),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -241,12 +245,12 @@ Future<void> showAllStatsSheet(
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
+                    Text(
                       'All stats',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                         letterSpacing: -0.3,
                       ),
                     ),
@@ -258,7 +262,9 @@ Future<void> showAllStatsSheet(
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade500,
+                          color: isDark
+                              ? const Color(0xFF9BA8B4)
+                              : Colors.grey.shade500,
                         ),
                       ),
                     ),
@@ -296,6 +302,7 @@ class _StatGridCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = stat.iconColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -326,7 +333,7 @@ class _StatGridCell extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF16222E) : Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -345,10 +352,10 @@ class _StatGridCell extends StatelessWidget {
             child: Text(
               stat.value,
               maxLines: 1,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF111111),
+                color: isDark ? Colors.white : const Color(0xFF111111),
                 letterSpacing: -0.4,
               ),
             ),

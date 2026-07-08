@@ -1,29 +1,42 @@
 import 'dart:math';
 
+import 'package:clain_the_run/app/theme_provider.dart';
 import 'package:clain_the_run/features/notification/presentation/pages/notification.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/rundetails.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 enum RunMode { solo, group }
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   RunMode _selectedRunMode = RunMode.solo;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFFF7F7F5);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      key: _scaffoldKey,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      drawer: _HomeDrawer(
+        isDarkMode: isDark,
+        onThemeChanged: (enabled) {
+          ref
+              .read(themeModeProvider.notifier)
+              .setThemeMode(enabled ? ThemeMode.dark : ThemeMode.light);
+        },
+      ),
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
@@ -31,7 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _HomeHeader(),
+              _HomeHeader(
+                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
               const SizedBox(height: 14),
               const _StreakCard(),
               const SizedBox(height: 12),
@@ -54,12 +69,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 0),
 
-              const Text(
+              Text(
                 'Your Progress',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF111111),
+                  color: isDark ? Colors.white : const Color(0xFF111111),
                 ),
               ),
 
@@ -68,12 +83,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 16),
 
-              const Text(
+              Text(
                 'Recent Activity',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF111111),
+                  color: isDark ? Colors.white : const Color(0xFF111111),
                 ),
               ),
 
@@ -90,18 +105,29 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader();
+  const _HomeHeader({required this.onMenuTap});
+
+  final VoidCallback onMenuTap;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Row(
       children: [
-        const Icon(Icons.menu, size: 28, color: Color(0xFF222222)),
+        GestureDetector(
+          onTap: onMenuTap,
+          child: Icon(
+            Icons.menu,
+            size: 28,
+            color: isDark ? Colors.white : const Color(0xFF222222),
+          ),
+        ),
 
         const SizedBox(width: 10),
 
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -110,15 +136,17 @@ class _HomeHeader extends StatelessWidget {
             children: [
               TextSpan(
                 text: 'Claim ',
-                style: TextStyle(color: Color(0xFF2CC76F)),
+                style: const TextStyle(color: Color(0xFF2CC76F)),
               ),
               TextSpan(
                 text: 'The ',
-                style: TextStyle(color: Color(0xFF101010)),
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF101010),
+                ),
               ),
               TextSpan(
                 text: 'Run',
-                style: TextStyle(color: Color(0xFF2CC76F)),
+                style: const TextStyle(color: Color(0xFF2CC76F)),
               ),
             ],
           ),
@@ -138,18 +166,90 @@ class _HomeHeader extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF111C26) : Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE3E3DF)),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF233241)
+                    : const Color(0xFFE3E3DF),
+              ),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.notifications_none_rounded,
               size: 24,
-              color: Color(0xFF2A2430),
+              color: isDark ? Colors.white : const Color(0xFF2A2430),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _HomeDrawer extends StatelessWidget {
+  const _HomeDrawer({required this.isDarkMode, required this.onThemeChanged});
+
+  final bool isDarkMode;
+  final ValueChanged<bool> onThemeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Drawer(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Settings',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDarkMode
+                        ? const Color(0xFF233241)
+                        : const Color(0xFFE2E2DF),
+                  ),
+                ),
+                child: SwitchListTile(
+                  value: isDarkMode,
+                  onChanged: onThemeChanged,
+                  activeThumbColor: const Color(0xFF2CC76F),
+                  title: Text(
+                    'Dark Mode',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: theme.textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Switch the app appearance',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDarkMode
+                          ? const Color(0xFF9BA8B4)
+                          : const Color(0xFF7B7B7B),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -347,6 +447,8 @@ class _RunMapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SizedBox(
       height: 354,
       child: Stack(
@@ -360,12 +462,16 @@ class _RunMapCard extends StatelessWidget {
             child: Container(
               height: 300,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF111C26) : Colors.white,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFD9D9D9)),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF233241)
+                      : const Color(0xFFD9D9D9),
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
+                    color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
                     blurRadius: 12,
                     offset: const Offset(0, 5),
                   ),
@@ -388,7 +494,11 @@ class _RunMapCard extends StatelessWidget {
                       tiltGesturesEnabled: false,
                       attributionButtonMargins: const Point(-1000, -1000),
                     ),
-                    Container(color: Colors.white.withValues(alpha: 0.30)),
+                    Container(
+                      color: (isDark ? Colors.black : Colors.white).withValues(
+                        alpha: isDark ? 0.14 : 0.30,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -437,12 +547,18 @@ class _RunMapCard extends StatelessWidget {
                 width: 286,
                 padding: const EdgeInsets.fromLTRB(18, 10, 18, 2),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF111C26) : Colors.white,
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: const Color(0xFFD6D6D6)),
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF233241)
+                        : const Color(0xFFD6D6D6),
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.18 : 0.08,
+                      ),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -450,10 +566,10 @@ class _RunMapCard extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    const Text(
+                    Text(
                       'Select Run Mode',
                       style: TextStyle(
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -476,7 +592,9 @@ class _RunMapCard extends StatelessWidget {
                           Container(
                             width: 1,
                             height: 22,
-                            color: const Color(0xFFD0D0D0),
+                            color: isDark
+                                ? const Color(0xFF233241)
+                                : const Color(0xFFD0D0D0),
                           ),
 
                           Expanded(
@@ -513,6 +631,8 @@ class _RunModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -524,7 +644,9 @@ class _RunModeChip extends StatelessWidget {
             style: TextStyle(
               color: isSelected
                   ? const Color(0xFF1DC85D)
-                  : const Color(0xFF9FA3A5),
+                  : (isDark
+                        ? const Color(0xFF8FA0AE)
+                        : const Color(0xFF9FA3A5)),
               fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
@@ -589,16 +711,20 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       height: 146,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE1E1E1)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF223242) : const Color(0xFFE1E1E1),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.14),
             blurRadius: 14,
             offset: const Offset(4, 8),
           ),
@@ -615,8 +741,8 @@ class _MetricCard extends StatelessWidget {
           Text(
             value,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF111111),
+            style: TextStyle(
+              color: isDark ? Colors.white : const Color(0xFF111111),
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -625,8 +751,8 @@ class _MetricCard extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF737373),
+            style: TextStyle(
+              color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF737373),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),

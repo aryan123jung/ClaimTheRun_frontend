@@ -61,8 +61,11 @@ class MessagesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -74,31 +77,36 @@ class MessagesScreen extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 18,
-                      color: Color(0xFF1A1A1A),
+                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Messages',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 2, 20, 0),
               child: Text(
                 'Stay in touch with your running crew',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6E6E6E)),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF6E6E6E),
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -144,28 +152,44 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(23),
-        border: Border.all(color: const Color(0xFFD8D8D5)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+        ),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Expanded(
             child: TextField(
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: 'Search messages...',
-                hintStyle: TextStyle(fontSize: 14, color: Color(0xFF9A9A9A)),
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF9A9A9A),
+                ),
                 isDense: true,
               ),
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white : const Color(0xFF111111),
+              ),
             ),
           ),
-          Icon(Icons.search_rounded, size: 20, color: Color(0xFF9A9A9A)),
+          Icon(
+            Icons.search_rounded,
+            size: 20,
+            color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF9A9A9A),
+          ),
         ],
       ),
     );

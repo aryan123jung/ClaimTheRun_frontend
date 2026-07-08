@@ -26,6 +26,7 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMine = message.isMine;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -40,7 +41,11 @@ class ChatBubble extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: isMine ? _brandGreen : const Color(0xFFF1F1EF),
+              color: isMine
+                  ? _brandGreen
+                  : (isDark
+                        ? const Color(0xFF1B2732)
+                        : const Color(0xFFF1F1EF)),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(18),
                 topRight: const Radius.circular(18),
@@ -53,7 +58,9 @@ class ChatBubble extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 height: 1.35,
-                color: isMine ? Colors.white : const Color(0xFF1A1A1A),
+                color: isMine
+                    ? Colors.white
+                    : (isDark ? Colors.white : const Color(0xFF1A1A1A)),
               ),
             ),
           ),
@@ -63,7 +70,12 @@ class ChatBubble extends StatelessWidget {
             children: [
               Text(
                 message.timestamp,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF9A9A9A)),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF9A9A9A),
+                ),
               ),
               if (isMine) ...[
                 const SizedBox(width: 4),

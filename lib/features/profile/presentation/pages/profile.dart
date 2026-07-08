@@ -74,26 +74,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final socialState = ref.watch(socialViewModelProvider);
     final myPosts = socialState.myPosts.map(_mapPostEntityToViewModel).toList();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           children: [
-            const Text(
+            Text(
               'Profile',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF111111),
+                color: isDark ? Colors.white : const Color(0xFF111111),
               ),
             ),
             const SizedBox(height: 2),
-            const Text(
+            Text(
               'Track your progress. Own your journey.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6E6E6E)),
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark
+                    ? const Color(0xFF9BA8B4)
+                    : const Color(0xFF6E6E6E),
+              ),
             ),
             const SizedBox(height: 16),
             ProfileHeaderCard(
@@ -107,13 +114,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 22),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'My Stats',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF111111),
+                      color: isDark ? Colors.white : const Color(0xFF111111),
                     ),
                   ),
                 ),
@@ -151,9 +158,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF111C26) : Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFD8D8D5)),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF233241)
+                      : const Color(0xFFD8D8D5),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.07),
@@ -170,12 +181,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 22),
-            const Text(
+            Text(
               'Activity Summary',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
+                color: isDark ? Colors.white : const Color(0xFF111111),
               ),
             ),
             const SizedBox(height: 10),
@@ -188,13 +199,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 22),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'My Posts',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF111111),
+                      color: isDark ? Colors.white : const Color(0xFF111111),
                     ),
                   ),
                 ),
@@ -281,22 +292,26 @@ class _ProfilePostMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE3E3E0)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE3E3E0),
+        ),
       ),
       child: Column(
         children: [
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF4D4D4D),
+              color: isDark ? const Color(0xFFB3BEC8) : const Color(0xFF4D4D4D),
             ),
           ),
           if (actionLabel != null && onTap != null) ...[

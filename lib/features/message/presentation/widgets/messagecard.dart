@@ -35,9 +35,10 @@ class MessageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasUnread = conversation.unreadCount > 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Material(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF111C26) : Colors.white,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
@@ -46,7 +47,9 @@ class MessageCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFD8D8D5)),
+            border: Border.all(
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -87,22 +90,24 @@ class MessageCard extends StatelessWidget {
                   children: [
                     Text(
                       conversation.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                     const SizedBox(height: 3),
                     Row(
                       children: [
                         if (conversation.isLastMessageMine)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(right: 4),
                             child: Icon(
                               Icons.done_all_rounded,
                               size: 15,
-                              color: Color(0xFF6E6E6E),
+                              color: isDark
+                                  ? const Color(0xFF9BA8B4)
+                                  : const Color(0xFF6E6E6E),
                             ),
                           ),
                         Expanded(
@@ -116,8 +121,12 @@ class MessageCard extends StatelessWidget {
                                   ? FontWeight.w600
                                   : FontWeight.w400,
                               color: hasUnread
-                                  ? const Color(0xFF1A1A1A)
-                                  : const Color(0xFF6E6E6E),
+                                  ? (isDark
+                                        ? Colors.white
+                                        : const Color(0xFF1A1A1A))
+                                  : (isDark
+                                        ? const Color(0xFFB3BEC8)
+                                        : const Color(0xFF6E6E6E)),
                             ),
                           ),
                         ),
@@ -135,7 +144,11 @@ class MessageCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: hasUnread ? FontWeight.w600 : FontWeight.w400,
-                      color: hasUnread ? _brandGreen : const Color(0xFF9A9A9A),
+                      color: hasUnread
+                          ? _brandGreen
+                          : (isDark
+                                ? const Color(0xFF9BA8B4)
+                                : const Color(0xFF9A9A9A)),
                     ),
                   ),
                   const SizedBox(height: 6),

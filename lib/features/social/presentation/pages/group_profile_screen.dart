@@ -22,9 +22,12 @@ class GroupProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalPosts = postCount ?? posts.length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAF7),
+      backgroundColor: isDark
+          ? const Color(0xFF07111A)
+          : const Color(0xFFF9FAF7),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -35,10 +38,10 @@ class GroupProfileScreen extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 22,
-                      color: Color(0xFF232323),
+                      color: isDark ? Colors.white : const Color(0xFF232323),
                     ),
                   ),
                   const Spacer(),
@@ -78,12 +81,12 @@ class GroupProfileScreen extends StatelessWidget {
                     isJoined: isJoined,
                   ),
                   const SizedBox(height: 18),
-                  const Text(
+                  Text(
                     'Posts',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF111111),
+                      color: isDark ? Colors.white : const Color(0xFF111111),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -116,15 +119,19 @@ class _GroupHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8E8E4)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE8E8E4),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
             blurRadius: 12,
             offset: const Offset(0, 3),
           ),
@@ -140,9 +147,15 @@ class _GroupHeroCard extends StatelessWidget {
                 height: 88,
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF5F8F2),
+                  color: isDark
+                      ? const Color(0xFF16222E)
+                      : const Color(0xFFF5F8F2),
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFE2EBDD)),
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF233241)
+                        : const Color(0xFFE2EBDD),
+                  ),
                 ),
                 child: ClipOval(
                   child: Image.network(group.iconUrl, fit: BoxFit.cover),
@@ -159,10 +172,12 @@ class _GroupHeroCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             group.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 21,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF111111),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF111111),
                             ),
                           ),
                         ),
@@ -181,10 +196,12 @@ class _GroupHeroCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       description,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         height: 1.4,
-                        color: Color(0xFF8A8A8A),
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF8A8A8A),
                       ),
                     ),
                   ],
@@ -203,9 +220,13 @@ class _GroupHeroCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFAF8),
+              color: isDark ? const Color(0xFF16222E) : const Color(0xFFFAFAF8),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFEAEAE6)),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF233241)
+                    : const Color(0xFFEAEAE6),
+              ),
             ),
             child: Row(
               children: [
@@ -243,20 +264,24 @@ class _GroupStatBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF111111),
+            color: isDark ? Colors.white : const Color(0xFF111111),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF909090)),
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? const Color(0xFF8FA0AE) : const Color(0xFF909090),
+          ),
         ),
       ],
     );
@@ -268,7 +293,12 @@ class _StatDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, height: 52, color: const Color(0xFFE3E3E0));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 1,
+      height: 52,
+      color: isDark ? const Color(0xFF233241) : const Color(0xFFE3E3E0),
+    );
   }
 }
 
@@ -292,12 +322,15 @@ class _HeaderPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = outlined
-        ? Colors.white
+        ? (isDark ? const Color(0xFF111C26) : Colors.white)
         : _brandGreen.withValues(alpha: 0.62);
     final textColor = outlined ? _activeTextGreen : Colors.white;
     final borderColor = outlined
-        ? _activeTextGreen.withValues(alpha: 0.85)
+        ? (isDark
+              ? const Color(0xFF72B63E).withValues(alpha: 0.70)
+              : _activeTextGreen.withValues(alpha: 0.85))
         : Colors.transparent;
 
     return Material(
@@ -351,9 +384,10 @@ class _HeroActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = filled
         ? const Color(0xFF72B63E)
-        : const Color(0xFFF6FBF2);
+        : (isDark ? const Color(0xFF16222E) : const Color(0xFFF6FBF2));
     final foregroundColor = filled ? Colors.white : const Color(0xFF3B6D11);
 
     return Material(
@@ -367,7 +401,11 @@ class _HeroActionButton extends StatelessWidget {
             color: backgroundColor,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: filled ? Colors.transparent : const Color(0xFFDCE9D3),
+              color: filled
+                  ? Colors.transparent
+                  : (isDark
+                        ? const Color(0xFF233241)
+                        : const Color(0xFFDCE9D3)),
             ),
           ),
           child: Row(

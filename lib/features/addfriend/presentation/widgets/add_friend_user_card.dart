@@ -34,15 +34,19 @@ class AddFriendUserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE7E7E3)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE7E7E3),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -63,10 +67,10 @@ class AddFriendUserCard extends StatelessWidget {
                   user.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF181818),
+                    color: isDark ? Colors.white : const Color(0xFF181818),
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -74,18 +78,22 @@ class AddFriendUserCard extends StatelessWidget {
                   user.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF6F6F6F),
+                    color: isDark
+                        ? const Color(0xFF9BA8B4)
+                        : const Color(0xFF6F6F6F),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${user.mutualFriends} mutual friends',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF8F8F8F),
+                    color: isDark
+                        ? const Color(0xFF8FA0AE)
+                        : const Color(0xFF8F8F8F),
                   ),
                 ),
               ],
@@ -129,17 +137,21 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isPrimary ? const Color(0xFF55A63A) : Colors.white,
+          color: isPrimary
+              ? const Color(0xFF55A63A)
+              : (isDark ? const Color(0xFF16222E) : Colors.white),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: isPrimary
                 ? const Color(0xFF55A63A)
-                : const Color(0xFFD8D8D5),
+                : (isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5)),
           ),
         ),
         child: Text(
@@ -147,7 +159,9 @@ class _ActionButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: isPrimary ? Colors.white : const Color(0xFF606060),
+            color: isPrimary
+                ? Colors.white
+                : (isDark ? const Color(0xFFB3BEC8) : const Color(0xFF606060)),
           ),
         ),
       ),

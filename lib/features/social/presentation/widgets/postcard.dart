@@ -82,11 +82,15 @@ class PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEDEDEA)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -113,18 +117,22 @@ class PostCard extends StatelessWidget {
                     children: [
                       Text(
                         post.authorName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF111111),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111111),
                         ),
                       ),
                       const SizedBox(height: 1),
                       Text(
                         post.timestamp,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF9A9A9A),
+                          color: isDark
+                              ? const Color(0xFF9BA8B4)
+                              : const Color(0xFF9A9A9A),
                         ),
                       ),
                     ],
@@ -132,10 +140,12 @@ class PostCard extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: onMorePressed,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.more_vert_rounded,
                     size: 20,
-                    color: Color(0xFF6E6E6E),
+                    color: isDark
+                        ? const Color(0xFF9BA8B4)
+                        : const Color(0xFF6E6E6E),
                   ),
                   splashRadius: 18,
                 ),
@@ -147,10 +157,10 @@ class PostCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
               child: Text(
                 post.caption,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A1A1A),
+                  color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                 ),
               ),
             ),

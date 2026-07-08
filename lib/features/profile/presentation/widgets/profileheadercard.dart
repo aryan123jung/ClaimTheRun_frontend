@@ -24,15 +24,19 @@ class ProfileHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD8D8D5)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.07),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -77,18 +81,20 @@ class ProfileHeaderCard extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111111),
+                    color: isDark ? Colors.white : const Color(0xFF111111),
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   bio,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF6E6E6E),
+                    color: isDark
+                        ? const Color(0xFF9BA8B4)
+                        : const Color(0xFF6E6E6E),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -98,9 +104,15 @@ class ProfileHeaderCard extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFAFAF8),
+                    color: isDark
+                        ? const Color(0xFF16222E)
+                        : const Color(0xFFFAFAF8),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFEAEAE6)),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF233241)
+                          : const Color(0xFFEAEAE6),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -129,21 +141,26 @@ class _CountColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Expanded(
       child: Column(
         children: [
           Text(
             '$value',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF111111),
+              color: isDark ? Colors.white : const Color(0xFF111111),
             ),
           ),
           const SizedBox(height: 3),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF909090)),
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFF8FA0AE) : const Color(0xFF909090),
+            ),
           ),
         ],
       ),
@@ -154,6 +171,12 @@ class _CountColumn extends StatelessWidget {
 class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, height: 44, color: const Color(0xFFE3E3E0));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: 1,
+      height: 44,
+      color: isDark ? const Color(0xFF233241) : const Color(0xFFE3E3E0),
+    );
   }
 }

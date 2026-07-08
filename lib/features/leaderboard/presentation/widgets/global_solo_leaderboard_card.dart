@@ -25,13 +25,14 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (entry.rank <= 3) {
-      return _buildTopRow();
+      return _buildTopRow(isDark);
     }
-    return _buildStandardRow();
+    return _buildStandardRow(isDark);
   }
 
-  Widget _buildTopRow() {
+  Widget _buildTopRow(bool isDark) {
     final rankColor = _rankColors[entry.rank]!;
     final tint = _rankTints[entry.rank]!;
     final medal = _medalEmoji[entry.rank]!;
@@ -40,8 +41,10 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
       height: 84,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFEDEDEA)),
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -84,18 +87,20 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
                   children: [
                     Text(
                       entry.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       entry.time,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF9A9A9A),
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF9A9A9A),
                       ),
                     ),
                   ],
@@ -116,19 +121,21 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStandardRow() {
+  Widget _buildStandardRow(bool isDark) {
     final highlight = entry.isCurrentUser;
 
     return Container(
       height: 84,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: highlight ? brandGreen.withValues(alpha: 0.08) : Colors.white,
+        color: highlight
+            ? brandGreen.withValues(alpha: isDark ? 0.18 : 0.08)
+            : (isDark ? const Color(0xFF111C26) : Colors.white),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: highlight
               ? brandGreen.withValues(alpha: 0.35)
-              : const Color(0xFFEDEDEA),
+              : (isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA)),
         ),
         boxShadow: [
           BoxShadow(
@@ -175,15 +182,17 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
-                    color: const Color(0xFF111111),
+                    color: isDark ? Colors.white : const Color(0xFF111111),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   entry.time,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF9A9A9A),
+                    color: isDark
+                        ? const Color(0xFF9BA8B4)
+                        : const Color(0xFF9A9A9A),
                   ),
                 ),
               ],
@@ -195,7 +204,11 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
-              color: highlight ? activeTextGreen : const Color(0xFF5F5E5A),
+              color: highlight
+                  ? activeTextGreen
+                  : (isDark
+                        ? const Color(0xFFB3BEC8)
+                        : const Color(0xFF5F5E5A)),
             ),
           ),
         ],

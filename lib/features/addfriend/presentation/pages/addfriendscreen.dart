@@ -5,8 +5,12 @@ class AddFriendScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAF7),
+      backgroundColor: isDark
+          ? const Color(0xFF07111A)
+          : const Color(0xFFF9FAF7),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -18,31 +22,36 @@ class AddFriendScreen extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 20,
-                      color: Color(0xFF202020),
+                      color: isDark ? Colors.white : const Color(0xFF202020),
                     ),
                   ),
                   const SizedBox(width: 2),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Add Friends',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
               child: Text(
                 'Find runners you know and grow your crew.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF707070)),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF707070),
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -63,27 +72,43 @@ class _AddFriendSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFDADAD6)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFDADAD6),
+        ),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.search_rounded, size: 20, color: Color(0xFF9A9A9A)),
-          SizedBox(width: 10),
+          Icon(
+            Icons.search_rounded,
+            size: 20,
+            color: isDark ? const Color(0xFF8FA0AE) : const Color(0xFF9A9A9A),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: 'Search by name or username',
-                hintStyle: TextStyle(fontSize: 14, color: Color(0xFF9A9A9A)),
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: isDark
+                      ? const Color(0xFF8FA0AE)
+                      : const Color(0xFF9A9A9A),
+                ),
                 isDense: true,
               ),
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white : const Color(0xFF111111),
+              ),
             ),
           ),
         ],

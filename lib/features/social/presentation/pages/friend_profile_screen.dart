@@ -23,6 +23,7 @@ class FriendProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final stats = [
       ProfileStatModel(
         icon: Icons.show_chart_rounded,
@@ -57,7 +58,9 @@ class FriendProfileScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAF7),
+      backgroundColor: isDark
+          ? const Color(0xFF07111A)
+          : const Color(0xFFF9FAF7),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -68,10 +71,10 @@ class FriendProfileScreen extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 22,
-                      color: Color(0xFF232323),
+                      color: isDark ? Colors.white : const Color(0xFF232323),
                     ),
                   ),
                   const Spacer(),
@@ -104,13 +107,15 @@ class FriendProfileScreen extends StatelessWidget {
                   const SizedBox(height: 22),
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'My Stats',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF111111),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF111111),
                           ),
                         ),
                       ),
@@ -151,12 +156,12 @@ class FriendProfileScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _StatsCard(stats: stats.sublist(0, 3)),
                   const SizedBox(height: 22),
-                  const Text(
+                  Text(
                     'Posts',
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF111111),
+                      color: isDark ? Colors.white : const Color(0xFF111111),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -189,15 +194,18 @@ class _FriendHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE8E8E4)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE8E8E4),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -221,19 +229,21 @@ class _FriendHeroCard extends StatelessWidget {
                       friend.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       bio,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         height: 1.35,
-                        color: Color(0xFF8A8A8A),
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF8A8A8A),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -254,9 +264,13 @@ class _FriendHeroCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFAF8),
+              color: isDark ? const Color(0xFF16222E) : const Color(0xFFFAFAF8),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFEAEAE6)),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF233241)
+                    : const Color(0xFFEAEAE6),
+              ),
             ),
             child: Row(
               children: [
@@ -290,14 +304,17 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFD8D8D5)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.07),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -348,6 +365,7 @@ class _OutlineActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -366,10 +384,12 @@ class _OutlineActionButton extends StatelessWidget {
               const SizedBox(width: 5),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF4B9E2C),
+                  color: isDark
+                      ? const Color(0xFF7FD851)
+                      : const Color(0xFF4B9E2C),
                 ),
               ),
             ],
@@ -388,20 +408,24 @@ class _HeroStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF111111),
+            color: isDark ? Colors.white : const Color(0xFF111111),
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: Color(0xFF909090)),
+          style: TextStyle(
+            fontSize: 10,
+            color: isDark ? const Color(0xFF8FA0AE) : const Color(0xFF909090),
+          ),
         ),
       ],
     );
@@ -413,6 +437,11 @@ class _HeroStatDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, height: 44, color: const Color(0xFFE3E3E0));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 1,
+      height: 44,
+      color: isDark ? const Color(0xFF233241) : const Color(0xFFE3E3E0),
+    );
   }
 }

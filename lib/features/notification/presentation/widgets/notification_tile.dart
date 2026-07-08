@@ -28,17 +28,27 @@ class NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: notification.isUnread ? const Color(0xFFF6FBF1) : Colors.white,
+          color: isDark
+              ? (notification.isUnread
+                    ? const Color(0xFF17251B)
+                    : const Color(0xFF111C26))
+              : (notification.isUnread
+                    ? const Color(0xFFF6FBF1)
+                    : Colors.white),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: notification.isUnread
-                ? const Color(0xFFDCECCF)
-                : const Color(0xFFE7E7E3),
+            color: isDark
+                ? const Color(0xFF233241)
+                : (notification.isUnread
+                      ? const Color(0xFFDCECCF)
+                      : const Color(0xFFE7E7E3)),
           ),
           boxShadow: [
             BoxShadow(
@@ -88,19 +98,23 @@ class NotificationTile extends StatelessWidget {
                       Expanded(
                         child: Text(
                           notification.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF181818),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF181818),
                           ),
                         ),
                       ),
                       Text(
                         notification.timeLabel,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF8E8E8E),
+                          color: isDark
+                              ? const Color(0xFF9BA8B4)
+                              : const Color(0xFF8E8E8E),
                         ),
                       ),
                     ],
@@ -108,10 +122,12 @@ class NotificationTile extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     notification.message,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       height: 1.35,
-                      color: Color(0xFF696969),
+                      color: isDark
+                          ? const Color(0xFFB3BEC8)
+                          : const Color(0xFF696969),
                     ),
                   ),
                 ],

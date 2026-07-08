@@ -1145,8 +1145,10 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -1199,36 +1201,47 @@ class _MapScreenState extends State<MapScreen> {
                       18,
                       24,
                     ),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0xFFFFFFFF),
-                          Color(0xF2FFFFFF),
-                          Color(0xB3FFFFFF),
-                          Color(0x00FFFFFF),
-                        ],
+                        colors: isDark
+                            ? const [
+                                Color(0xFF07111A),
+                                Color(0xF207111A),
+                                Color(0xB307111A),
+                                Color(0x0007111A),
+                              ]
+                            : const [
+                                Color(0xFFFFFFFF),
+                                Color(0xF2FFFFFF),
+                                Color(0xB3FFFFFF),
+                                Color(0x00FFFFFF),
+                              ],
                         stops: [0.0, 0.45, 0.75, 1.0],
                       ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Map',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF111111),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF111111),
                           ),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
+                        Text(
                           'Choose your run type and start tracking',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF8B8B8B),
+                            color: isDark
+                                ? const Color(0xFF9BA8B4)
+                                : const Color(0xFF8B8B8B),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -1303,12 +1316,17 @@ class _RunTypeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       height: 44,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: const Color(0xE6F1F1EF),
+        color: isDark ? const Color(0xD9111C26) : const Color(0xE6F1F1EF),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+        ),
       ),
       child: Row(
         children: [
@@ -1357,17 +1375,20 @@ class _RunTypeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = isActive ? activeColor : inactiveColor;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: isActive ? Colors.white : Colors.transparent,
+        color: isActive
+            ? (isDark ? const Color(0xFF16222E) : Colors.white)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(9),
         boxShadow: isActive
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
+                  color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),
@@ -1410,13 +1431,17 @@ class _RecenterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: const Color(0xD9FFFFFF),
+        color: isDark ? const Color(0xE6111C26) : const Color(0xD9FFFFFF),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE7E7E4)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE7E7E4),
+        ),
       ),
       child: Material(
         color: Colors.transparent,
@@ -1453,22 +1478,26 @@ class _TrackingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       child: isRunning
-          ? _buildRunningCard(key: const ValueKey('running'))
-          : _buildIdleCard(key: const ValueKey('idle')),
+          ? _buildRunningCard(key: const ValueKey('running'), isDark: isDark)
+          : _buildIdleCard(key: const ValueKey('idle'), isDark: isDark),
     );
   }
 
-  Widget _buildRunningCard({required Key key}) {
+  Widget _buildRunningCard({required Key key, required bool isDark}) {
     return Container(
       key: key,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE4E4E1)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE4E4E1),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -1480,9 +1509,9 @@ class _TrackingCard extends StatelessWidget {
       child: Row(
         children: [
           RichText(
-            text: const TextSpan(
+            text: TextSpan(
               style: TextStyle(
-                color: Color(0xFF111111),
+                color: isDark ? Colors.white : Color(0xFF111111),
                 fontWeight: FontWeight.w700,
               ),
               children: [
@@ -1517,14 +1546,16 @@ class _TrackingCard extends StatelessWidget {
     );
   }
 
-  Widget _buildIdleCard({required Key key}) {
+  Widget _buildIdleCard({required Key key, required bool isDark}) {
     return Container(
       key: key,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE4E4E1)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE4E4E1),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -1544,9 +1575,12 @@ class _TrackingCard extends StatelessWidget {
                 size: 24,
               ),
               const SizedBox(width: 10),
-              const Text(
+              Text(
                 'Live tracking',
-                style: TextStyle(fontSize: 15, color: Color(0xFF1A1A1A)),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                ),
               ),
               const Spacer(),
               Material(
@@ -1561,7 +1595,11 @@ class _TrackingCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFD7D7D7)),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF233241)
+                            : const Color(0xFFD7D7D7),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1571,23 +1609,29 @@ class _TrackingCard extends StatelessWidget {
                               ? Icons.emoji_events_outlined
                               : Icons.map_outlined,
                           size: 18,
-                          color: const Color(0xFF8F9694),
+                          color: isDark
+                              ? const Color(0xFF9BA8B4)
+                              : const Color(0xFF8F9694),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           selectedMode == MapRunMode.group
                               ? 'Leadership'
                               : 'Territories',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF1A1A1A),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF1A1A1A),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
+                        Icon(
                           Icons.chevron_right_rounded,
                           size: 18,
-                          color: Color(0xFF6E6E6E),
+                          color: isDark
+                              ? const Color(0xFF9BA8B4)
+                              : const Color(0xFF6E6E6E),
                         ),
                       ],
                     ),
@@ -1598,9 +1642,9 @@ class _TrackingCard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           RichText(
-            text: const TextSpan(
+            text: TextSpan(
               style: TextStyle(
-                color: Color(0xFF111111),
+                color: isDark ? Colors.white : Color(0xFF111111),
                 fontWeight: FontWeight.w700,
               ),
               children: [
@@ -1613,9 +1657,12 @@ class _TrackingCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
+          Text(
             'Distance',
-            style: TextStyle(fontSize: 13, color: Color(0xFF9A9A9A)),
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF9A9A9A),
+            ),
           ),
           const SizedBox(height: 18),
           SizedBox(

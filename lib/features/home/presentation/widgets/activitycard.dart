@@ -29,8 +29,10 @@ class ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Material(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF111C26) : Colors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -39,7 +41,9 @@ class ActivityCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFD9D9D9)),
+            border: Border.all(
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFD9D9D9),
+            ),
           ),
           child: Row(
             children: [
@@ -48,7 +52,9 @@ class ActivityCard extends StatelessWidget {
                 height: 68,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: const Color(0xFFE9E9E9),
+                  color: isDark
+                      ? const Color(0xFF1C2A36)
+                      : const Color(0xFFE9E9E9),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -62,8 +68,8 @@ class ActivityCard extends StatelessWidget {
                   children: [
                     Text(
                       activity.title,
-                      style: const TextStyle(
-                        color: Color(0xFF111111),
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -71,8 +77,10 @@ class ActivityCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       activity.subtitle,
-                      style: const TextStyle(
-                        color: Color(0xFF9A9A9A),
+                      style: TextStyle(
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF9A9A9A),
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),
@@ -83,17 +91,21 @@ class ActivityCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '${activity.distanceKm.toStringAsFixed(2)} km',
-                style: const TextStyle(
-                  color: Color(0xFF848484),
+                style: TextStyle(
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF848484),
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
                 size: 24,
-                color: Color(0xFF646464),
+                color: isDark
+                    ? const Color(0xFF9BA8B4)
+                    : const Color(0xFF646464),
               ),
             ],
           ),

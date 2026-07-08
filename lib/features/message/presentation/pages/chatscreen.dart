@@ -99,8 +99,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -153,19 +155,25 @@ class _ChatHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 14, 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFEDEDEA))),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+          ),
+        ),
       ),
       child: Row(
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(
+            icon: Icon(
               Icons.arrow_back_ios_new_rounded,
               size: 18,
-              color: Color(0xFF1A1A1A),
+              color: isDark ? Colors.white : const Color(0xFF1A1A1A),
             ),
           ),
           Stack(
@@ -185,7 +193,10 @@ class _ChatHeader extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: _brandGreen,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF111C26) : Colors.white,
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -198,10 +209,10 @@ class _ChatHeader extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111111),
+                    color: isDark ? Colors.white : const Color(0xFF111111),
                   ),
                 ),
                 Text(
@@ -233,8 +244,12 @@ class _HeaderIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Material(
-      color: _brandGreen.withValues(alpha: 0.12),
+      color: isDark
+          ? const Color(0xFF1B2732)
+          : _brandGreen.withValues(alpha: 0.12),
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
@@ -258,6 +273,8 @@ class _MessageInputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         14,
@@ -265,8 +282,12 @@ class _MessageInputBar extends StatelessWidget {
         14,
         10 + MediaQuery.of(context).padding.bottom,
       ),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFEDEDEA))),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -274,13 +295,13 @@ class _MessageInputBar extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F5),
+              color: isDark ? const Color(0xFF1B2732) : const Color(0xFFF7F7F5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.add_rounded,
               size: 22,
-              color: Color(0xFF6E6E6E),
+              color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF6E6E6E),
             ),
           ),
           const SizedBox(width: 10),
@@ -289,7 +310,9 @@ class _MessageInputBar extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 42, maxHeight: 120),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F7F5),
+                color: isDark
+                    ? const Color(0xFF1B2732)
+                    : const Color(0xFFF7F7F5),
                 borderRadius: BorderRadius.circular(21),
               ),
               child: TextField(
@@ -297,13 +320,21 @@ class _MessageInputBar extends StatelessWidget {
                 minLines: 1,
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   border: InputBorder.none,
                   hintText: 'Message...',
-                  hintStyle: TextStyle(fontSize: 14, color: Color(0xFF9A9A9A)),
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    color: isDark
+                        ? const Color(0xFF9BA8B4)
+                        : const Color(0xFF9A9A9A),
+                  ),
                   isCollapsed: true,
                 ),
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.white : const Color(0xFF111111),
+                ),
               ),
             ),
           ),

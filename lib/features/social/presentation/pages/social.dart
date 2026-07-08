@@ -118,9 +118,11 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
   Widget build(BuildContext context) {
     final socialState = ref.watch(socialViewModelProvider);
     final posts = socialState.posts.map(_mapPostEntityToViewModel).toList();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -134,13 +136,15 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
                           'Social',
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF111111),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF111111),
                           ),
                         ),
                         SizedBox(height: 2),
@@ -148,7 +152,9 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                           'Connect. Share. Get inspired.',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF8B8B8B),
+                            color: isDark
+                                ? const Color(0xFF9BA8B4)
+                                : const Color(0xFF8B8B8B),
                           ),
                         ),
                       ],
@@ -192,7 +198,9 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
             TabBar(
               controller: _tabController,
               labelColor: _activeTextGreen,
-              unselectedLabelColor: const Color(0xFFA7AEAA),
+              unselectedLabelColor: isDark
+                  ? const Color(0xFF7F8E99)
+                  : const Color(0xFFA7AEAA),
               labelStyle: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -203,7 +211,9 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
               ),
               indicatorColor: _brandGreen,
               indicatorWeight: 2.5,
-              dividerColor: const Color(0xFFEDEDEA),
+              dividerColor: isDark
+                  ? const Color(0xFF233241)
+                  : const Color(0xFFEDEDEA),
               tabs: const [
                 Tab(text: 'Feed'),
                 Tab(text: 'Friends'),
@@ -668,12 +678,16 @@ class _PostComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEDEDEA)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -696,13 +710,20 @@ class _PostComposer extends StatelessWidget {
                 height: 40,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F5),
+                  color: isDark
+                      ? const Color(0xFF1B2732)
+                      : const Color(0xFFF7F7F5),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 alignment: Alignment.centerLeft,
-                child: const Text(
+                child: Text(
                   "What's on your run today?",
-                  style: TextStyle(fontSize: 13, color: Color(0xFF9A9A9A)),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark
+                        ? const Color(0xFF9BA8B4)
+                        : const Color(0xFF9A9A9A),
+                  ),
                 ),
               ),
             ),
@@ -714,13 +735,17 @@ class _PostComposer extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F7F5),
+                color: isDark
+                    ? const Color(0xFF1B2732)
+                    : const Color(0xFFF7F7F5),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.image_outlined,
                 size: 19,
-                color: Color(0xFF6E6E6E),
+                color: isDark
+                    ? const Color(0xFF9BA8B4)
+                    : const Color(0xFF6E6E6E),
               ),
             ),
           ),
@@ -739,22 +764,26 @@ class _FeedMessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEDEDEA)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+        ),
       ),
       child: Column(
         children: [
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF4D4D4D),
+              color: isDark ? const Color(0xFFB3BEC8) : const Color(0xFF4D4D4D),
             ),
           ),
           if (actionLabel != null && onTap != null) ...[
@@ -774,13 +803,17 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(23),
-        border: Border.all(color: const Color(0xFFE4E4E1)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE4E4E1),
+        ),
       ),
       child: Row(
         children: [
@@ -789,16 +822,25 @@ class _SearchField extends StatelessWidget {
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: hint,
-                hintStyle: const TextStyle(
+                hintStyle: TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF9A9A9A),
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF9A9A9A),
                 ),
                 isDense: true,
               ),
-              style: const TextStyle(fontSize: 14),
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white : const Color(0xFF111111),
+              ),
             ),
           ),
-          const Icon(Icons.search_rounded, size: 20, color: Color(0xFF9A9A9A)),
+          Icon(
+            Icons.search_rounded,
+            size: 20,
+            color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF9A9A9A),
+          ),
         ],
       ),
     );

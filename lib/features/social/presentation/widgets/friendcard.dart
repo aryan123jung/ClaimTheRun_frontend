@@ -34,6 +34,8 @@ class FriendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -42,9 +44,11 @@ class FriendCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF111C26) : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFEDEDEA)),
+            border: Border.all(
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -66,18 +70,20 @@ class FriendCard extends StatelessWidget {
                   children: [
                     Text(
                       friend.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       '${friend.totalKm.toStringAsFixed(0)} km total',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF9A9A9A),
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF9A9A9A),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -94,9 +100,11 @@ class FriendCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           'Territories: ${friend.territories}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF6E6E6E),
+                            color: isDark
+                                ? const Color(0xFFB3BEC8)
+                                : const Color(0xFF6E6E6E),
                           ),
                         ),
                       ],
@@ -113,10 +121,12 @@ class FriendCard extends StatelessWidget {
               const SizedBox(width: 6),
               IconButton(
                 onPressed: onMorePressed,
-                icon: const Icon(
+                icon: Icon(
                   Icons.more_horiz_rounded,
                   size: 20,
-                  color: Color(0xFF6E6E6E),
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF6E6E6E),
                 ),
                 splashRadius: 18,
               ),

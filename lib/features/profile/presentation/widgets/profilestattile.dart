@@ -28,13 +28,19 @@ class ProfileStatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           border: Border(
             right: showDivider
-                ? const BorderSide(color: Color(0xFFD8D8D5))
+                ? BorderSide(
+                    color: isDark
+                        ? const Color(0xFF233241)
+                        : const Color(0xFFD8D8D5),
+                  )
                 : BorderSide.none,
           ),
         ),
@@ -44,20 +50,22 @@ class ProfileStatTile extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               stat.value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF111111),
+                color: isDark ? Colors.white : const Color(0xFF111111),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               stat.label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF6E6E6E),
+                color: isDark
+                    ? const Color(0xFF9BA8B4)
+                    : const Color(0xFF6E6E6E),
               ),
             ),
           ],

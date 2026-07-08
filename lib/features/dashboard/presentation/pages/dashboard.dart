@@ -25,14 +25,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F5),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: Container(
         height: 74,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFDCDCDC))),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF111C26) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFDCDCDC),
+            ),
+          ),
         ),
         child: Row(
           children: [
@@ -89,6 +96,8 @@ class _DashboardNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Expanded(
       child: Material(
         color: Colors.transparent,
@@ -98,7 +107,11 @@ class _DashboardNavItem extends StatelessWidget {
             child: Icon(
               icon,
               size: 30,
-              color: active ? const Color(0xFF72B63E) : const Color(0xFFA7A7A7),
+              color: active
+                  ? const Color(0xFF72B63E)
+                  : (isDark
+                        ? const Color(0xFF7F8E99)
+                        : const Color(0xFFA7A7A7)),
             ),
           ),
         ),

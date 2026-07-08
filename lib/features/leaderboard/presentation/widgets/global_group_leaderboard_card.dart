@@ -24,13 +24,14 @@ class GlobalGroupLeaderboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (entry.rank <= 3) {
-      return _buildTopRow();
+      return _buildTopRow(isDark);
     }
-    return _buildStandardRow();
+    return _buildStandardRow(isDark);
   }
 
-  Widget _buildTopRow() {
+  Widget _buildTopRow(bool isDark) {
     final tint = _rankTints[entry.rank]!;
     final medal = _medalEmoji[entry.rank]!;
     final rankColor = _rankColors[entry.rank]!;
@@ -39,8 +40,10 @@ class GlobalGroupLeaderboardCard extends StatelessWidget {
       height: 84,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFEDEDEA)),
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -85,18 +88,20 @@ class GlobalGroupLeaderboardCard extends StatelessWidget {
                       entry.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : Color(0xFF111111),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${entry.membersCount} members',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF9A9A9A),
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF9A9A9A),
                       ),
                     ),
                   ],
@@ -118,9 +123,11 @@ class GlobalGroupLeaderboardCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     entry.time,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF4B4B4B),
+                      color: isDark
+                          ? const Color(0xFFB3BEC8)
+                          : const Color(0xFF4B4B4B),
                     ),
                   ),
                 ],
@@ -132,14 +139,16 @@ class GlobalGroupLeaderboardCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStandardRow() {
+  Widget _buildStandardRow(bool isDark) {
     return Container(
       height: 84,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEDEDEA)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -173,18 +182,20 @@ class GlobalGroupLeaderboardCard extends StatelessWidget {
                   entry.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF111111),
+                    color: isDark ? Colors.white : Color(0xFF111111),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${entry.membersCount} members',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF9A9A9A),
+                    color: isDark
+                        ? const Color(0xFF9BA8B4)
+                        : const Color(0xFF9A9A9A),
                   ),
                 ),
               ],
@@ -206,7 +217,12 @@ class GlobalGroupLeaderboardCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 entry.time,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF4B4B4B)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? const Color(0xFFB3BEC8)
+                      : const Color(0xFF4B4B4B),
+                ),
               ),
             ],
           ),

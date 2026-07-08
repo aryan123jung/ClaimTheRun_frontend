@@ -47,8 +47,11 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAF7),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -60,31 +63,36 @@ class NotificationScreen extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 20,
-                      color: Color(0xFF202020),
+                      color: isDark ? Colors.white : const Color(0xFF202020),
                     ),
                   ),
                   const SizedBox(width: 2),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Notifications',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
               child: Text(
                 'Friend requests, likes, comments, and group posts.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF707070)),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF707070),
+                ),
               ),
             ),
             const SizedBox(height: 18),

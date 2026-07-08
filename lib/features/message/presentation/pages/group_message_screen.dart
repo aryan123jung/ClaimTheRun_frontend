@@ -74,8 +74,9 @@ class _GroupMessageScreenState extends State<GroupMessageScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF07111A) : Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -136,10 +137,16 @@ class _GroupMessageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 10, 14, 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFEDEDEA))),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF07111A) : Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+          ),
+        ),
       ),
       child: Column(
         children: [
@@ -147,10 +154,10 @@ class _GroupMessageHeader extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: onBack,
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_ios_new_rounded,
                   size: 18,
-                  color: Color(0xFF1A1A1A),
+                  color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                 ),
               ),
               CircleAvatar(
@@ -164,17 +171,19 @@ class _GroupMessageHeader extends StatelessWidget {
                   children: [
                     Text(
                       groupName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF111111),
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                     Text(
                       '$memberCount members',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF8B8B8B),
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF8B8B8B),
                       ),
                     ),
                   ],
@@ -198,12 +207,16 @@ class _ModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 50,
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F5F2),
+        color: isDark ? const Color(0xFF111C26) : const Color(0xFFF4F5F2),
         borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : Colors.transparent,
+        ),
       ),
       child: Row(
         children: [
@@ -246,8 +259,11 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: isSelected ? Colors.white : Colors.transparent,
+      color: isSelected
+          ? (isDark ? const Color(0xFF16222E) : Colors.white)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         onTap: onTap,
@@ -287,6 +303,7 @@ class _WalkieTalkiePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
       child: Column(
@@ -315,22 +332,22 @@ class _WalkieTalkiePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          const Text(
+          Text(
             'Hold to talk',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF111111),
+              color: isDark ? Colors.white : const Color(0xFF111111),
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Use walkie-talkie mode for quick live voice updates with your group.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
               height: 1.45,
-              color: Color(0xFF7D7D7D),
+              color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF7D7D7D),
             ),
           ),
           const SizedBox(height: 26),
@@ -338,18 +355,24 @@ class _WalkieTalkiePanel extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 15),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F8F5),
+              color: isDark ? const Color(0xFF111C26) : const Color(0xFFF7F8F5),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE6E6E2)),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF233241)
+                    : const Color(0xFFE6E6E2),
+              ),
             ),
-            child: const Column(
+            child: Column(
               children: [
                 Text(
                   'Last Voice Activity',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF8A8A8A),
+                    color: isDark
+                        ? const Color(0xFF8FA0AE)
+                        : const Color(0xFF8A8A8A),
                   ),
                 ),
                 SizedBox(height: 6),
@@ -358,7 +381,7 @@ class _WalkieTalkiePanel extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF111111),
+                    color: isDark ? Colors.white : const Color(0xFF111111),
                   ),
                 ),
               ],
@@ -380,6 +403,7 @@ class _GroupMessageInputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.fromLTRB(
         14,
@@ -387,8 +411,13 @@ class _GroupMessageInputBar extends StatelessWidget {
         14,
         10 + MediaQuery.of(context).padding.bottom,
       ),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFEDEDEA))),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF07111A) : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -396,13 +425,13 @@ class _GroupMessageInputBar extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F5),
+              color: isDark ? const Color(0xFF111C26) : const Color(0xFFF7F7F5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.add_rounded,
               size: 22,
-              color: Color(0xFF6E6E6E),
+              color: isDark ? const Color(0xFF8FA0AE) : const Color(0xFF6E6E6E),
             ),
           ),
           const SizedBox(width: 10),
@@ -411,7 +440,9 @@ class _GroupMessageInputBar extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 42, maxHeight: 120),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F7F5),
+                color: isDark
+                    ? const Color(0xFF111C26)
+                    : const Color(0xFFF7F7F5),
                 borderRadius: BorderRadius.circular(21),
               ),
               child: TextField(
@@ -419,13 +450,21 @@ class _GroupMessageInputBar extends StatelessWidget {
                 minLines: 1,
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   border: InputBorder.none,
                   hintText: 'Message the group...',
-                  hintStyle: TextStyle(fontSize: 14, color: Color(0xFF9A9A9A)),
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    color: isDark
+                        ? const Color(0xFF8FA0AE)
+                        : const Color(0xFF9A9A9A),
+                  ),
                   isCollapsed: true,
                 ),
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.white : const Color(0xFF111111),
+                ),
               ),
             ),
           ),

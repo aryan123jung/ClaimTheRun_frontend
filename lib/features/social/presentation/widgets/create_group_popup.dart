@@ -83,15 +83,16 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Material(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF111C26) : Colors.white,
       borderRadius: BorderRadius.circular(28),
       child: Container(
         width: 720,
         padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF111C26) : Colors.white,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
@@ -110,7 +111,9 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                 width: 56,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD0D0D0),
+                  color: isDark
+                      ? const Color(0xFF233241)
+                      : const Color(0xFFD0D0D0),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -122,13 +125,15 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Create a Group',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF111111),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111111),
                         ),
                       ),
                       SizedBox(height: 2),
@@ -136,7 +141,9 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                         'Build your running community.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Color(0xFF787878),
+                          color: isDark
+                              ? const Color(0xFF9BA8B4)
+                              : const Color(0xFF787878),
                         ),
                       ),
                     ],
@@ -147,26 +154,30 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                   child: Container(
                     width: 44,
                     height: 44,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF2F2F2),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF16222E)
+                          : const Color(0xFFF2F2F2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.close_rounded,
                       size: 26,
-                      color: Color(0xFF4B4B4B),
+                      color: isDark
+                          ? const Color(0xFFB3BEC8)
+                          : const Color(0xFF4B4B4B),
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 18),
-            const Text(
+            Text(
               'Group Photo',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF232323),
+                color: isDark ? Colors.white : const Color(0xFF232323),
               ),
             ),
             const SizedBox(height: 10),
@@ -180,10 +191,14 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                   vertical: 30,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FCF5),
+                  color: isDark
+                      ? const Color(0xFF16222E)
+                      : const Color(0xFFF8FCF5),
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: const Color(0xFF9BCB84),
+                    color: isDark
+                        ? const Color(0xFF233241)
+                        : const Color(0xFF9BCB84),
                     width: 1.8,
                   ),
                 ),
@@ -209,12 +224,12 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
+            Text(
               'Group Name',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF232323),
+                color: isDark ? Colors.white : const Color(0xFF232323),
               ),
             ),
             const SizedBox(height: 8),
@@ -234,24 +249,30 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                 ),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontSize: 15,
-                  color: const Color(0xFF1B1B1B),
+                  color: isDark ? Colors.white : const Color(0xFF1B1B1B),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Group Description',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF232323),
+                color: isDark ? Colors.white : const Color(0xFF232323),
               ),
             ),
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFB8B8B8), width: 1.4),
+                color: isDark ? const Color(0xFF16222E) : Colors.transparent,
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF233241)
+                      : const Color(0xFFB8B8B8),
+                  width: 1.4,
+                ),
               ),
               child: TextField(
                 controller: _descriptionController,
@@ -269,7 +290,7 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                 ),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontSize: 15,
-                  color: const Color(0xFF1B1B1B),
+                  color: isDark ? Colors.white : const Color(0xFF1B1B1B),
                 ),
               ),
             ),
@@ -308,11 +329,16 @@ class _InputShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF16222E) : Colors.transparent,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFB8B8B8), width: 1.4),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFB8B8B8),
+          width: 1.4,
+        ),
       ),
       child: child,
     );

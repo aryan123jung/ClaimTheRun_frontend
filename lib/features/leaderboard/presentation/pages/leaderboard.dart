@@ -745,8 +745,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -757,18 +760,23 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Leaderboard',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF111111),
+                      color: isDark ? Colors.white : const Color(0xFF111111),
                     ),
                   ),
                   const SizedBox(height: 2),
-                  const Text(
+                  Text(
                     'Compete, improve, be the best',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF8B8B8B)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? const Color(0xFF9BA8B4)
+                          : const Color(0xFF8B8B8B),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   _SegmentedToggle<LeaderboardScope>(
@@ -954,11 +962,13 @@ class _SegmentedToggle<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       height: height,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F1EF),
+        color: isDark ? const Color(0xFF1B2732) : const Color(0xFFF1F1EF),
         borderRadius: BorderRadius.circular(compact ? 9 : 11),
       ),
       child: Row(
@@ -1005,6 +1015,7 @@ class _SegmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = isActive ? activeColor : inactiveColor;
 
     return AnimatedContainer(
@@ -1041,7 +1052,9 @@ class _SegmentButton extends StatelessWidget {
                   style: TextStyle(
                     fontSize: compact ? 12 : 13,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    color: color,
+                    color: isActive
+                        ? color
+                        : (isDark ? const Color(0xFF9BA8B4) : color),
                   ),
                 ),
               ],

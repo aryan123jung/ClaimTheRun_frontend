@@ -25,16 +25,19 @@ class WeeklyActivityChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final maxKm = days.map((d) => d.km).reduce((a, b) => a > b ? a : b);
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF111C26) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFD8D8D5)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.07),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -63,7 +66,10 @@ class WeeklyActivityChart extends StatelessWidget {
                 ),
               ),
             ),
-            const VerticalDivider(width: 1, color: Color(0xFFD8D8D5)),
+            VerticalDivider(
+              width: 1,
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+            ),
 
             SizedBox(
               width: 128,
@@ -111,6 +117,7 @@ class _DayBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     const maxBarHeight = 120.0;
 
     return Column(
@@ -124,8 +131,8 @@ class _DayBar extends StatelessWidget {
             height: 1.2,
             fontWeight: isHighlighted ? FontWeight.w600 : FontWeight.w400,
             color: isHighlighted
-                ? const Color(0xFF111111)
-                : const Color(0xFF6E6E6E),
+                ? (isDark ? Colors.white : const Color(0xFF111111))
+                : (isDark ? const Color(0xFF9BA8B4) : const Color(0xFF6E6E6E)),
           ),
         ),
         const SizedBox(height: 6),
@@ -140,7 +147,10 @@ class _DayBar extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           day.label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF6E6E6E)),
+          style: TextStyle(
+            fontSize: 11,
+            color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF6E6E6E),
+          ),
         ),
       ],
     );
@@ -155,21 +165,26 @@ class _SummaryStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF111111),
+            color: isDark ? Colors.white : const Color(0xFF111111),
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF6E6E6E)),
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF6E6E6E),
+          ),
         ),
       ],
     );

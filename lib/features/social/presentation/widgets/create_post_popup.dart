@@ -115,17 +115,18 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final captionLength = _captionController.text.characters.length;
     final trimmedCaption = _captionController.text.trim();
 
     return Material(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF111C26) : Colors.white,
       borderRadius: BorderRadius.circular(28),
       child: Container(
         width: 720,
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF111C26) : Colors.white,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
@@ -144,7 +145,9 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                 width: 56,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD0D0D0),
+                  color: isDark
+                      ? const Color(0xFF233241)
+                      : const Color(0xFFD0D0D0),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -156,13 +159,15 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Create a Post',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF111111),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111111),
                         ),
                       ),
                       SizedBox(height: 4),
@@ -170,7 +175,9 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                         'Share your run, thoughts or moments.',
                         style: TextStyle(
                           fontSize: 15,
-                          color: Color(0xFF787878),
+                          color: isDark
+                              ? const Color(0xFF9BA8B4)
+                              : const Color(0xFF787878),
                         ),
                       ),
                     ],
@@ -181,14 +188,18 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                   child: Container(
                     width: 48,
                     height: 48,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF2F2F2),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF16222E)
+                          : const Color(0xFFF2F2F2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.close_rounded,
                       size: 28,
-                      color: Color(0xFF4B4B4B),
+                      color: isDark
+                          ? const Color(0xFFB3BEC8)
+                          : const Color(0xFF4B4B4B),
                     ),
                   ),
                 ),
@@ -197,12 +208,12 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
             const SizedBox(height: 22),
             Row(
               children: [
-                const Text(
+                Text(
                   'Add Photos',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF232323),
+                    color: isDark ? Colors.white : const Color(0xFF232323),
                   ),
                 ),
                 const Spacer(),
@@ -227,10 +238,14 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                   vertical: 30,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FCF5),
+                  color: isDark
+                      ? const Color(0xFF16222E)
+                      : const Color(0xFFF8FCF5),
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: const Color(0xFF9BCB84),
+                    color: isDark
+                        ? const Color(0xFF233241)
+                        : const Color(0xFF9BCB84),
                     width: 1.8,
                   ),
                 ),
@@ -286,13 +301,15 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: Text(
                                   'Photo attached',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF2B2B2B),
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF2B2B2B),
                                   ),
                                 ),
                               ),
@@ -316,19 +333,25 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Write a caption',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF232323),
+                color: isDark ? Colors.white : const Color(0xFF232323),
               ),
             ),
             const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFB8B8B8), width: 1.4),
+                color: isDark ? const Color(0xFF16222E) : Colors.transparent,
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF233241)
+                      : const Color(0xFFB8B8B8),
+                  width: 1.4,
+                ),
               ),
               child: TextField(
                 controller: _captionController,
@@ -349,7 +372,7 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                 ),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontSize: 16,
-                  color: const Color(0xFF1B1B1B),
+                  color: isDark ? Colors.white : const Color(0xFF1B1B1B),
                 ),
               ),
             ),
@@ -359,10 +382,12 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                 alignment: Alignment.centerRight,
                 child: Text(
                   '$captionLength/$_captionLimit',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF9A9A9A),
+                    color: isDark
+                        ? const Color(0xFF8FA0AE)
+                        : const Color(0xFF9A9A9A),
                   ),
                 ),
               ),
