@@ -1,14 +1,24 @@
+import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profileheadercard.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profilestattile.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/statsheet.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/weeklyactivitycart.dart';
+import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
+import 'package:clain_the_run/features/social/presentation/state/social_state.dart';
+import 'package:clain_the_run/features/social/presentation/view_model/social_view_model.dart';
+import 'package:clain_the_run/features/social/presentation/widgets/create_post_popup.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
-  // Placeholder data — replace with real data from your backend/provider.
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const _stats = [
     ProfileStatModel(
       icon: Icons.show_chart_rounded,
@@ -52,21 +62,19 @@ class ProfileScreen extends StatelessWidget {
     DailyDistance(label: 'Sun', km: 9.0),
   ];
 
-  static const _myPosts = [
-    PostModel(
-      authorName: 'Aryan Jung Chhetri',
-      authorAvatarUrl: 'https://i.pravatar.cc/150?img=11',
-      timestamp: 'Today, 7:15 AM',
-      caption: "How's the view???",
-      imageUrl:
-          'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800',
-      likeCount: 23,
-      commentCount: 23,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(
+      () => ref.read(socialViewModelProvider.notifier).loadMyPosts(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final socialState = ref.watch(socialViewModelProvider);
+    final myPosts = socialState.myPosts.map(_mapPostEntityToViewModel).toList();
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -88,13 +96,13 @@ class ProfileScreen extends StatelessWidget {
               style: TextStyle(fontSize: 13, color: Color(0xFF6E6E6E)),
             ),
             const SizedBox(height: 16),
-            const ProfileHeaderCard(
+            ProfileHeaderCard(
               name: 'Aryan Jung Chhetri',
               bio: 'Live in the present moment',
               avatarUrl: 'https://i.pravatar.cc/150?img=11',
               runCount: 47,
               territoryCount: 1,
-              postCount: 1,
+              postCount: myPosts.length,
             ),
             const SizedBox(height: 22),
             Row(
@@ -178,17 +186,60 @@ class ProfileScreen extends StatelessWidget {
               avgPace: "5'55\" / km",
             ),
             const SizedBox(height: 22),
-            const Text(
-              'My Posts',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
-              ),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'My Posts',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111111),
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _openCreatePostPopup,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add Post'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF3B6D11),
+                    side: BorderSide(
+                      color: const Color(0xFF3B6D11).withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
-            for (final post in _myPosts) ...[
-              PostCard(post: post),
+            if (socialState.status == SocialStatus.loading && myPosts.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 30),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (socialState.errorMessage != null && myPosts.isEmpty)
+              _ProfilePostMessage(
+                message: socialState.errorMessage!,
+                actionLabel: 'Retry',
+                onTap: () {
+                  ref.read(socialViewModelProvider.notifier).loadMyPosts();
+                },
+              )
+            else if (myPosts.isEmpty)
+              _ProfilePostMessage(
+                message: 'You have not posted anything yet.',
+                actionLabel: 'Create one',
+                onTap: _openCreatePostPopup,
+              ),
+            for (final post in myPosts) ...[
+              PostCard(
+                post: post,
+                onLike: () {
+                  ref
+                      .read(socialViewModelProvider.notifier)
+                      .toggleLike(post.id);
+                },
+              ),
               const SizedBox(height: 12),
             ],
           ],
@@ -196,4 +247,83 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _openCreatePostPopup() {
+    showCreatePostPopup(
+      context,
+      onSubmit: (caption, imageUrl) async {
+        final success = await ref
+            .read(socialViewModelProvider.notifier)
+            .createPost(caption: caption, imageUrl: imageUrl);
+        if (success) return null;
+        return ref.read(socialViewModelProvider).errorMessage ??
+            'Unable to create post';
+      },
+      onSuccess: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post uploaded successfully.')),
+        );
+      },
+    );
+  }
+}
+
+class _ProfilePostMessage extends StatelessWidget {
+  const _ProfilePostMessage({
+    required this.message,
+    this.actionLabel,
+    this.onTap,
+  });
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE3E3E0)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4D4D4D),
+            ),
+          ),
+          if (actionLabel != null && onTap != null) ...[
+            const SizedBox(height: 12),
+            TextButton(onPressed: onTap, child: Text(actionLabel!)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+PostModel _mapPostEntityToViewModel(PostEntity post) {
+  final avatarUrl =
+      (post.author.profileUrl != null && post.author.profileUrl!.isNotEmpty)
+      ? ApiEndpoints.profileImageUrl(post.author.profileUrl!)
+      : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(post.author.fullname)}&background=E6F3DC&color=3B6D11';
+
+  return PostModel(
+    id: post.id,
+    authorName: post.author.fullname,
+    authorAvatarUrl: avatarUrl,
+    timestamp: formatPostTimestamp(post.createdAt),
+    caption: post.caption,
+    imageUrl: post.imageUrl,
+    likeCount: post.likeCount,
+    commentCount: post.commentCount,
+    isLiked: post.isLiked,
+  );
 }

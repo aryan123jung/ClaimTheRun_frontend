@@ -1,53 +1,34 @@
+import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/addfriend/presentation/pages/addfriendscreen.dart';
 import 'package:clain_the_run/features/addfriend/presentation/pages/friend_requests_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
+import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
+import 'package:clain_the_run/features/social/presentation/state/social_state.dart';
+import 'package:clain_the_run/features/social/presentation/view_model/social_view_model.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/create_group_popup.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/create_post_popup.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/groupcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SocialScreen extends StatefulWidget {
+class SocialScreen extends ConsumerStatefulWidget {
   const SocialScreen({super.key});
 
   @override
-  State<SocialScreen> createState() => _SocialScreenState();
+  ConsumerState<SocialScreen> createState() => _SocialScreenState();
 }
 
-class _SocialScreenState extends State<SocialScreen>
+class _SocialScreenState extends ConsumerState<SocialScreen>
     with SingleTickerProviderStateMixin {
   static const _brandGreen = Color(0xFF72B63E);
   static const _activeTextGreen = Color(0xFF3B6D11);
 
   late final TabController _tabController;
-
-  // Placeholder data — replace with real data from your backend/provider.
-  final List<PostModel> _posts = const [
-    PostModel(
-      authorName: 'Aryan Jung Chhetri',
-      authorAvatarUrl: 'https://i.pravatar.cc/150?img=11',
-      timestamp: 'Today, 7:15 AM',
-      caption: "How's the view???",
-      imageUrl:
-          'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800',
-      likeCount: 23,
-      commentCount: 23,
-    ),
-    PostModel(
-      authorName: 'Riya Kapoor',
-      authorAvatarUrl: 'https://i.pravatar.cc/150?img=25',
-      timestamp: 'Today, 7:15 AM',
-      caption: 'Morning run around the lake',
-      imageUrl:
-          'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
-      likeCount: 23,
-      commentCount: 23,
-    ),
-  ];
 
   final List<FriendModel> _friends = const [
     FriendModel(
@@ -119,9 +100,10 @@ class _SocialScreenState extends State<SocialScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    Future.microtask(
+      () => ref.read(socialViewModelProvider.notifier).loadPosts(),
+    );
     _tabController.addListener(() {
-      // Rebuild so the header action button (message / add friend /
-      // create group) updates as the selected tab changes.
       if (!_tabController.indexIsChanging) setState(() {});
     });
   }
@@ -134,6 +116,9 @@ class _SocialScreenState extends State<SocialScreen>
 
   @override
   Widget build(BuildContext context) {
+    final socialState = ref.watch(socialViewModelProvider);
+    final posts = socialState.posts.map(_mapPostEntityToViewModel).toList();
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -149,8 +134,8 @@ class _SocialScreenState extends State<SocialScreen>
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
+                      children: const [
+                        Text(
                           'Social',
                           style: TextStyle(
                             fontSize: 22,
@@ -158,8 +143,8 @@ class _SocialScreenState extends State<SocialScreen>
                             color: Color(0xFF111111),
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        const Text(
+                        SizedBox(height: 2),
+                        Text(
                           'Connect. Share. Get inspired.',
                           style: TextStyle(
                             fontSize: 13,
@@ -229,7 +214,41 @@ class _SocialScreenState extends State<SocialScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _FeedTab(posts: _posts),
+                  _FeedTab(
+                    posts: posts,
+                    isLoading: socialState.status == SocialStatus.loading,
+                    errorMessage: socialState.errorMessage,
+                    onRetry: () {
+                      ref.read(socialViewModelProvider.notifier).loadPosts();
+                    },
+                    onCreatePost: () {
+                      showCreatePostPopup(
+                        context,
+                        onSubmit: (caption, imageUrl) async {
+                          final success = await ref
+                              .read(socialViewModelProvider.notifier)
+                              .createPost(caption: caption, imageUrl: imageUrl);
+                          if (success) return null;
+                          return ref
+                                  .read(socialViewModelProvider)
+                                  .errorMessage ??
+                              'Unable to create post';
+                        },
+                        onSuccess: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Post uploaded successfully.'),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    onLike: (postId) {
+                      ref
+                          .read(socialViewModelProvider.notifier)
+                          .toggleLike(postId);
+                    },
+                  ),
                   _FriendsTab(friends: _friends),
                   _GroupsTab(groups: _groups),
                 ],
@@ -243,19 +262,46 @@ class _SocialScreenState extends State<SocialScreen>
 }
 
 class _FeedTab extends StatelessWidget {
-  const _FeedTab({required this.posts});
+  const _FeedTab({
+    required this.posts,
+    required this.onCreatePost,
+    required this.onLike,
+    this.isLoading = false,
+    this.errorMessage,
+    this.onRetry,
+  });
 
   final List<PostModel> posts;
+  final VoidCallback onCreatePost;
+  final ValueChanged<String> onLike;
+  final bool isLoading;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
       children: [
-        const _PostComposer(),
+        _PostComposer(onTap: onCreatePost),
         const SizedBox(height: 14),
+        if (isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (errorMessage != null && posts.isEmpty)
+          _FeedMessageCard(
+            message: errorMessage!,
+            actionLabel: 'Retry',
+            onTap: onRetry,
+          )
+        else if (posts.isEmpty)
+          const _FeedMessageCard(
+            message: 'No personal posts yet. Share your first run update.',
+          ),
         for (final post in posts) ...[
-          PostCard(post: post),
+          PostCard(post: post, onLike: () => onLike(post.id)),
           const SizedBox(height: 14),
         ],
       ],
@@ -385,6 +431,7 @@ List<PostModel> _friendPosts(String friendName) {
     case 'Ram Khadka':
       return const [
         PostModel(
+          id: 'friend-ram-1',
           authorName: 'Ram Khadka',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
           timestamp: 'Today, 7:15 AM',
@@ -395,6 +442,7 @@ List<PostModel> _friendPosts(String friendName) {
           commentCount: 23,
         ),
         PostModel(
+          id: 'friend-ram-2',
           authorName: 'Ram Khadka',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
           timestamp: 'Today, 7:15 AM',
@@ -406,6 +454,7 @@ List<PostModel> _friendPosts(String friendName) {
     case 'Aarav Sharma':
       return const [
         PostModel(
+          id: 'friend-aarav-1',
           authorName: 'Aarav Sharma',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=13',
           timestamp: 'Today, 6:45 AM',
@@ -417,6 +466,7 @@ List<PostModel> _friendPosts(String friendName) {
     case 'Riya Thapa':
       return const [
         PostModel(
+          id: 'friend-riya-1',
           authorName: 'Riya Thapa',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=26',
           timestamp: 'Yesterday, 7:20 AM',
@@ -430,6 +480,7 @@ List<PostModel> _friendPosts(String friendName) {
     default:
       return const [
         PostModel(
+          id: 'friend-default-1',
           authorName: 'Friend Post',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=30',
           timestamp: 'Today',
@@ -538,6 +589,7 @@ List<PostModel> _groupPosts(String groupName) {
     case 'The Runners':
       return const [
         PostModel(
+          id: 'group-runners-1',
           authorName: 'Aryan Jung Chhetri',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=11',
           timestamp: 'Today, 7:15 AM',
@@ -548,6 +600,7 @@ List<PostModel> _groupPosts(String groupName) {
           commentCount: 2,
         ),
         PostModel(
+          id: 'group-runners-2',
           authorName: 'Anjali Khadka',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=25',
           timestamp: 'Yesterday, 7:15 AM',
@@ -556,6 +609,7 @@ List<PostModel> _groupPosts(String groupName) {
           commentCount: 5,
         ),
         PostModel(
+          id: 'group-runners-3',
           authorName: 'Riya Kapoor',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=26',
           timestamp: 'May 17, 7:15 AM',
@@ -569,6 +623,7 @@ List<PostModel> _groupPosts(String groupName) {
     case 'Ultimate Runners':
       return const [
         PostModel(
+          id: 'group-ultimate-1',
           authorName: 'Ram Khadka',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
           timestamp: 'Today, 6:10 AM',
@@ -582,6 +637,7 @@ List<PostModel> _groupPosts(String groupName) {
     case 'Motivated Boys':
       return const [
         PostModel(
+          id: 'group-motivated-1',
           authorName: 'Aarav Sharma',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=13',
           timestamp: 'Today, 8:04 AM',
@@ -593,6 +649,7 @@ List<PostModel> _groupPosts(String groupName) {
     default:
       return const [
         PostModel(
+          id: 'group-default-1',
           authorName: 'Group Admin',
           authorAvatarUrl: 'https://i.pravatar.cc/150?img=18',
           timestamp: 'Today',
@@ -605,7 +662,9 @@ List<PostModel> _groupPosts(String groupName) {
 }
 
 class _PostComposer extends StatelessWidget {
-  const _PostComposer();
+  const _PostComposer({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -632,7 +691,7 @@ class _PostComposer extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: GestureDetector(
-              onTap: () => showCreatePostPopup(context),
+              onTap: onTap,
               child: Container(
                 height: 40,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -650,7 +709,7 @@ class _PostComposer extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           GestureDetector(
-            onTap: () => showCreatePostPopup(context),
+            onTap: onTap,
             child: Container(
               width: 40,
               height: 40,
@@ -665,6 +724,43 @@ class _PostComposer extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedMessageCard extends StatelessWidget {
+  const _FeedMessageCard({required this.message, this.actionLabel, this.onTap});
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFEDEDEA)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4D4D4D),
+            ),
+          ),
+          if (actionLabel != null && onTap != null) ...[
+            const SizedBox(height: 12),
+            TextButton(onPressed: onTap, child: Text(actionLabel!)),
+          ],
         ],
       ),
     );
@@ -776,4 +872,23 @@ class _OutlinedActionButton extends StatelessWidget {
       ),
     );
   }
+}
+
+PostModel _mapPostEntityToViewModel(PostEntity post) {
+  final avatarUrl =
+      (post.author.profileUrl != null && post.author.profileUrl!.isNotEmpty)
+      ? ApiEndpoints.profileImageUrl(post.author.profileUrl!)
+      : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(post.author.fullname)}&background=E6F3DC&color=3B6D11';
+
+  return PostModel(
+    id: post.id,
+    authorName: post.author.fullname,
+    authorAvatarUrl: avatarUrl,
+    timestamp: formatPostTimestamp(post.createdAt),
+    caption: post.caption,
+    imageUrl: post.imageUrl,
+    likeCount: post.likeCount,
+    commentCount: post.commentCount,
+    isLiked: post.isLiked,
+  );
 }

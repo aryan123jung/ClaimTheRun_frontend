@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 class PostModel {
   const PostModel({
+    required this.id,
     required this.authorName,
     required this.authorAvatarUrl,
     required this.timestamp,
@@ -12,6 +16,7 @@ class PostModel {
     this.isLiked = false,
   });
 
+  final String id;
   final String authorName;
   final String authorAvatarUrl;
   final String timestamp;
@@ -20,6 +25,41 @@ class PostModel {
   final int likeCount;
   final int commentCount;
   final bool isLiked;
+}
+
+String formatPostTimestamp(DateTime timestamp) {
+  final now = DateTime.now();
+  final difference = now.difference(timestamp);
+
+  if (difference.inMinutes < 1) {
+    return 'Just now';
+  }
+  if (difference.inHours < 1) {
+    return '${difference.inMinutes}m ago';
+  }
+  if (difference.inHours < 24) {
+    return '${difference.inHours}h ago';
+  }
+  if (difference.inDays < 7) {
+    return '${difference.inDays}d ago';
+  }
+
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  return '${monthNames[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
 }
 
 /// A single post in the social feed: author header, caption, optional
@@ -117,11 +157,7 @@ class PostCard extends StatelessWidget {
           if (post.imageUrl != null)
             AspectRatio(
               aspectRatio: 16 / 11,
-              child: Image.network(
-                post.imageUrl!,
-                fit: BoxFit.cover,
-                width: double.infinity,
-              ),
+              child: _PostImage(imageUrl: post.imageUrl!),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
@@ -131,7 +167,9 @@ class PostCard extends StatelessWidget {
                   icon: post.isLiked
                       ? Icons.favorite_rounded
                       : Icons.favorite_border_rounded,
-                  iconColor: post.isLiked ? _brandGreen : const Color(0xFF6E6E6E),
+                  iconColor: post.isLiked
+                      ? _brandGreen
+                      : const Color(0xFF6E6E6E),
                   label: '${post.likeCount}',
                   onTap: onLike,
                 ),
@@ -148,6 +186,30 @@ class PostCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _PostImage extends StatelessWidget {
+  const _PostImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl.startsWith('data:image/')) {
+      return Image.memory(
+        _decodeDataImage(imageUrl),
+        fit: BoxFit.cover,
+        width: double.infinity,
+      );
+    }
+
+    return Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity);
+  }
+
+  Uint8List _decodeDataImage(String dataUrl) {
+    final base64Part = dataUrl.split(',').last;
+    return base64Decode(base64Part);
   }
 }
 

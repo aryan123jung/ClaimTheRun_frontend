@@ -1,8 +1,15 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
-Future<void> showCreatePostPopup(BuildContext context) {
+Future<void> showCreatePostPopup(
+  BuildContext context, {
+  required Future<String?> Function(String caption, String? imageUrl) onSubmit,
+  VoidCallback? onSuccess,
+}) {
   return showGeneralDialog<void>(
     context: context,
     barrierLabel: 'Create post',
@@ -10,7 +17,7 @@ Future<void> showCreatePostPopup(BuildContext context) {
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (context, animation, secondaryAnimation) {
-      return const _CreatePostPopupOverlay();
+      return _CreatePostPopupOverlay(onSubmit: onSubmit, onSuccess: onSuccess);
     },
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(
@@ -33,7 +40,10 @@ Future<void> showCreatePostPopup(BuildContext context) {
 }
 
 class _CreatePostPopupOverlay extends StatelessWidget {
-  const _CreatePostPopupOverlay();
+  const _CreatePostPopupOverlay({required this.onSubmit, this.onSuccess});
+
+  final Future<String?> Function(String caption, String? imageUrl) onSubmit;
+  final VoidCallback? onSuccess;
 
   @override
   Widget build(BuildContext context) {
@@ -50,12 +60,18 @@ class _CreatePostPopupOverlay extends StatelessWidget {
               ),
             ),
           ),
-          const SafeArea(
+          SafeArea(
             child: Align(
               alignment: Alignment.center,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                child: CreatePostPopupCard(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 24,
+                ),
+                child: CreatePostPopupCard(
+                  onSubmit: onSubmit,
+                  onSuccess: onSuccess,
+                ),
               ),
             ),
           ),
@@ -66,7 +82,14 @@ class _CreatePostPopupOverlay extends StatelessWidget {
 }
 
 class CreatePostPopupCard extends StatefulWidget {
-  const CreatePostPopupCard({super.key});
+  const CreatePostPopupCard({
+    super.key,
+    required this.onSubmit,
+    this.onSuccess,
+  });
+
+  final Future<String?> Function(String caption, String? imageUrl) onSubmit;
+  final VoidCallback? onSuccess;
 
   @override
   State<CreatePostPopupCard> createState() => _CreatePostPopupCardState();
@@ -76,6 +99,12 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
   static const int _captionLimit = 500;
 
   final TextEditingController _captionController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _isSubmitting = false;
+  bool _isPickingImage = false;
+  String? _errorMessage;
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageDataUrl;
 
   @override
   void dispose() {
@@ -87,6 +116,7 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final captionLength = _captionController.text.characters.length;
+    final trimmedCaption = _captionController.text.trim();
 
     return Material(
       color: Colors.white,
@@ -166,8 +196,8 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
             ),
             const SizedBox(height: 22),
             Row(
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'Add Photos',
                   style: TextStyle(
                     fontSize: 15,
@@ -175,9 +205,9 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                     color: Color(0xFF232323),
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 Text(
-                  '0/5',
+                  _selectedImageBytes == null ? '0/1' : '1/1',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -189,7 +219,7 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
             const SizedBox(height: 12),
             InkWell(
               borderRadius: BorderRadius.circular(22),
-              onTap: () {},
+              onTap: _isPickingImage ? null : _pickImage,
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -204,25 +234,85 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                     width: 1.8,
                   ),
                 ),
-                child: Column(
-                  children: const [
-                    _UploadBadge(),
-                    SizedBox(height: 18),
-                    Text(
-                      'Tap to add photos',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF3E8F1F),
+                child: _selectedImageBytes == null
+                    ? Column(
+                        children: [
+                          if (_isPickingImage)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 18),
+                              child: SizedBox(
+                                height: 30,
+                                width: 30,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Color(0xFF46BB34),
+                                ),
+                              ),
+                            )
+                          else
+                            const _UploadBadge(),
+                          const SizedBox(height: 18),
+                          Text(
+                            _isPickingImage
+                                ? 'Opening gallery...'
+                                : 'Tap to add a photo',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF3E8F1F),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'JPG, PNG, WEBP supported',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF818181),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.memory(
+                              _selectedImageBytes!,
+                              height: 180,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Photo attached',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF2B2B2B),
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _pickImage,
+                                child: const Text('Change'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedImageBytes = null;
+                                    _selectedImageDataUrl = null;
+                                  });
+                                },
+                                child: const Text('Remove'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'or drag and drop',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF818181)),
-                    ),
-                  ],
-                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -278,10 +368,23 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
               ),
             ),
             const SizedBox(height: 14),
+            if (_errorMessage != null) ...[
+              Text(
+                _errorMessage!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFC83C3C),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: _isSubmitting || trimmedCaption.isEmpty
+                    ? null
+                    : _submitPost,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF55A63A),
                   foregroundColor: Colors.white,
@@ -295,13 +398,98 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                child: const Text('Post'),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Post'),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _submitPost() async {
+    final caption = _captionController.text.trim();
+    if (caption.isEmpty) {
+      setState(() {
+        _errorMessage = 'Caption cannot be empty.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    final error = await widget.onSubmit(caption, _selectedImageDataUrl);
+    if (!mounted) return;
+
+    if (error == null) {
+      Navigator.of(context).pop();
+      widget.onSuccess?.call();
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = false;
+      _errorMessage = error;
+    });
+  }
+
+  Future<void> _pickImage() async {
+    setState(() {
+      _isPickingImage = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final file = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (file == null) {
+        if (!mounted) return;
+        setState(() {
+          _isPickingImage = false;
+        });
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
+      final mimeType = _inferMimeType(file.path);
+      final dataUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
+
+      if (!mounted) return;
+      setState(() {
+        _isPickingImage = false;
+        _selectedImageBytes = bytes;
+        _selectedImageDataUrl = dataUrl;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isPickingImage = false;
+        _errorMessage = 'Could not load the selected image.';
+      });
+    }
+  }
+
+  String _inferMimeType(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
   }
 }
 
