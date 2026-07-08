@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:clain_the_run/features/notification/presentation/pages/notification.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
@@ -123,10 +124,19 @@ class _HomeHeader extends StatelessWidget {
 
         const Spacer(),
 
-        const Icon(
-          Icons.notifications_none_rounded,
-          size: 28,
-          color: Color(0xFF2A2430),
+        GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const NotificationScreen(),
+              ),
+            );
+          },
+          child: const Icon(
+            Icons.notifications_none_rounded,
+            size: 28,
+            color: Color(0xFF2A2430),
+          ),
         ),
 
         const SizedBox(width: 10),
