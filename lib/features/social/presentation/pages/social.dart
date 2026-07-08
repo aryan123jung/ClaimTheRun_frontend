@@ -1,5 +1,6 @@
 import 'package:clain_the_run/features/addfriend/presentation/pages/addfriendscreen.dart';
 import 'package:clain_the_run/features/addfriend/presentation/pages/friend_requests_screen.dart';
+import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
@@ -491,6 +492,17 @@ class _GroupsTab extends StatelessWidget {
                         description: _groupDescription(group.name),
                         postCount: _groupPosts(group.name).length,
                         posts: _groupPosts(group.name),
+                      ),
+                    ),
+                  );
+                },
+                onMessage: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => GroupMessageScreen(
+                        groupName: group.name,
+                        groupAvatarUrl: group.iconUrl,
+                        memberCount: group.memberCount,
                       ),
                     ),
                   );

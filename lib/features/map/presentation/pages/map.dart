@@ -912,6 +912,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:clain_the_run/features/leaderboard/presentation/pages/leaderboard.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -1269,10 +1270,17 @@ class _MapScreenState extends State<MapScreen> {
             right: 14,
             bottom: 8,
             child: _TrackingCard(
+              selectedMode: _selectedMode,
               isRunning: _isRunning,
               onStartPressed: _startRun,
               onStopPressed: _stopRun,
-              onTerritoriesPressed: () {},
+              onTerritoriesPressed: () {
+                if (_selectedMode != MapRunMode.group) return;
+
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+                );
+              },
             ),
           ),
         ],
@@ -1428,12 +1436,14 @@ class _RecenterButton extends StatelessWidget {
 
 class _TrackingCard extends StatelessWidget {
   const _TrackingCard({
+    required this.selectedMode,
     required this.isRunning,
     required this.onStartPressed,
     required this.onStopPressed,
     required this.onTerritoriesPressed,
   });
 
+  final MapRunMode selectedMode;
   final bool isRunning;
   final VoidCallback onStartPressed;
   final VoidCallback onStopPressed;
@@ -1553,24 +1563,28 @@ class _TrackingCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: const Color(0xFFD7D7D7)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.map_outlined,
+                          selectedMode == MapRunMode.group
+                              ? Icons.emoji_events_outlined
+                              : Icons.map_outlined,
                           size: 18,
-                          color: Color(0xFF8F9694),
+                          color: const Color(0xFF8F9694),
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
-                          'Territories',
-                          style: TextStyle(
+                          selectedMode == MapRunMode.group
+                              ? 'Leadership'
+                              : 'Territories',
+                          style: const TextStyle(
                             fontSize: 14,
                             color: Color(0xFF1A1A1A),
                           ),
                         ),
-                        SizedBox(width: 4),
-                        Icon(
+                        const SizedBox(width: 4),
+                        const Icon(
                           Icons.chevron_right_rounded,
                           size: 18,
                           color: Color(0xFF6E6E6E),

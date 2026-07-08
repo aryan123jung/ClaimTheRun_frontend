@@ -1,3 +1,4 @@
+import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/groupcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
 import 'package:flutter/material.dart';
@@ -51,7 +52,17 @@ class GroupProfileScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   _CircleHeaderAction(
                     icon: Icons.chat_bubble_rounded,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => GroupMessageScreen(
+                            groupName: group.name,
+                            groupAvatarUrl: group.iconUrl,
+                            memberCount: group.memberCount,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

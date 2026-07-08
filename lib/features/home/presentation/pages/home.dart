@@ -1,6 +1,8 @@
 import 'dart:math';
 
 import 'package:clain_the_run/features/notification/presentation/pages/notification.dart';
+import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
+import 'package:clain_the_run/features/home/presentation/widgets/rundetails.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
@@ -638,158 +640,39 @@ class _MetricCard extends StatelessWidget {
 class _RecentActivitySection extends StatelessWidget {
   const _RecentActivitySection();
 
+  static const _activities = [
+    ActivityModel(
+      title: 'Morning Run',
+      subtitle: 'Today, 7:15 AM',
+      distanceKm: 5.21,
+      totalTime: '00:31:42',
+      avgPace: "6'05\"",
+      calories: 356,
+    ),
+    ActivityModel(
+      title: 'First Territory Run',
+      subtitle: 'May 17, 10:15 AM',
+      distanceKm: 57.00,
+      totalTime: '05:42:18',
+      avgPace: "5'55\"",
+      calories: 1986,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       children: [
-        _ActivityCard(
-          title: 'Morning Run',
-          subtitle: 'Today, 7:15 AM',
-          distance: '5.21 km',
-        ),
-
-        SizedBox(height: 12),
-
-        _ActivityCard(
-          title: 'First Territory Run',
-          subtitle: 'May 17, 10:15 AM',
-          distance: '57.00 km',
-        ),
+        for (int index = 0; index < _activities.length; index++) ...[
+          ActivityCard(
+            activity: _activities[index],
+            onTap: () {
+              showRunDetailsSheet(context, activity: _activities[index]);
+            },
+          ),
+          if (index != _activities.length - 1) const SizedBox(height: 12),
+        ],
       ],
     );
   }
-}
-
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({
-    required this.title,
-    required this.subtitle,
-    required this.distance,
-  });
-
-  final String title;
-  final String subtitle;
-  final String distance;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD9D9D9)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: const Color(0xFFE9E9E9),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: CustomPaint(painter: _MapThumbPainter()),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF9A9A9A),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 6),
-
-          Text(
-            distance,
-            style: const TextStyle(
-              color: Color(0xFF848484),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-
-          const SizedBox(width: 4),
-
-          const Icon(
-            Icons.chevron_right_rounded,
-            size: 24,
-            color: Color(0xFF646464),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MapThumbPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = const Color(0xFFF0F0F0);
-
-    canvas.drawRect(Offset.zero & size, bgPaint);
-
-    final whitePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    final greyPaint = Paint()
-      ..color = const Color(0xFFC2C2C2)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    canvas.drawLine(
-      Offset(size.width * 0.1, size.height * 0.9),
-      Offset(size.width * 0.9, size.height * 0.1),
-      whitePaint,
-    );
-
-    canvas.drawLine(
-      Offset(size.width * 0.18, 0),
-      Offset(size.width * 0.46, size.height),
-      whitePaint,
-    );
-
-    canvas.drawLine(
-      Offset(0, size.height * 0.3),
-      Offset(size.width, size.height * 0.72),
-      greyPaint,
-    );
-
-    canvas.drawLine(
-      Offset(size.width * 0.58, 0),
-      Offset(size.width * 0.85, size.height),
-      greyPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
