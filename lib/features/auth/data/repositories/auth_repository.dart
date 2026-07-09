@@ -87,9 +87,9 @@ class AuthRepository implements IAuthRepository {
 
   @override
   Future<Either<Failure, AuthEntity>> updateProfile({
-    required String fullname,
-    required String bio,
-    required String profileUrl,
+    String? fullname,
+    String? bio,
+    String? profileUrl,
   }) async {
     try {
       final user = await _authRemoteDatasource.updateProfile(

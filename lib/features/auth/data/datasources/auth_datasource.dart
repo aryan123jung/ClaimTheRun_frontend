@@ -5,8 +5,8 @@ abstract interface class IAuthRemoteDatasource {
   Future<AuthApiModel?> login(String email, String password);
   Future<AuthApiModel?> getCurrentUser();
   Future<AuthApiModel?> updateProfile({
-    required String fullname,
-    required String bio,
-    required String profileUrl,
+    String? fullname,
+    String? bio,
+    String? profileUrl,
   });
 }

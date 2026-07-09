@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 class ProfileHeaderCard extends StatelessWidget {
@@ -27,6 +30,7 @@ class ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final avatarProvider = _buildAvatarProvider(avatarUrl);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -52,7 +56,10 @@ class ProfileHeaderCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 50,
-                backgroundImage: NetworkImage(avatarUrl),
+                backgroundImage: avatarProvider,
+                child: avatarProvider == null
+                    ? const Icon(Icons.person_rounded, size: 42)
+                    : null,
               ),
               Positioned(
                 bottom: -2,
@@ -148,6 +155,29 @@ class ProfileHeaderCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  ImageProvider<Object>? _buildAvatarProvider(String value) {
+    if (value.isEmpty) return null;
+
+    if (value.startsWith('data:')) {
+      final bytes = _decodeDataUrl(value);
+      if (bytes != null) {
+        return MemoryImage(bytes);
+      }
+      return null;
+    }
+
+    return NetworkImage(value);
+  }
+
+  Uint8List? _decodeDataUrl(String dataUrl) {
+    try {
+      final base64Part = dataUrl.split(',').last;
+      return base64Decode(base64Part);
+    } catch (_) {
+      return null;
+    }
   }
 }
 

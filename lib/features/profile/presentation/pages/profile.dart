@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:clain_the_run/app/theme_provider.dart';
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
@@ -12,6 +15,7 @@ import 'package:clain_the_run/features/social/presentation/widgets/create_post_p
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -318,10 +322,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.read(authViewModelProvider).authEntity;
     final nameController = TextEditingController(text: user?.fullname ?? '');
     final bioController = TextEditingController(text: user?.bio ?? '');
-    final imageController = TextEditingController(text: user?.profileUrl ?? '');
+    final imagePicker = ImagePicker();
+    final currentFullname = user?.fullname.trim() ?? '';
+    final currentBio = user?.bio?.trim() ?? '';
+    final currentProfileUrl = user?.profileUrl;
+    Uint8List? selectedImageBytes = _decodeProfileImage(user?.profileUrl);
+    String? selectedImageDataUrl = user?.profileUrl;
     bool isSaving = false;
+    bool isPickingImage = false;
 
-    await showModalBottomSheet<void>(
+    final didSave = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -336,16 +346,73 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           child: StatefulBuilder(
             builder: (context, setModalState) {
-              Future<void> submit() async {
-                final fullname = nameController.text.trim();
-                final bio = bioController.text.trim();
-                final profileUrl = imageController.text.trim();
-                final messenger = ScaffoldMessenger.of(this.context);
-                final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(this.context);
 
-                if (fullname.isEmpty) {
+              Future<void> pickImage() async {
+                setModalState(() {
+                  isPickingImage = true;
+                });
+
+                try {
+                  final file = await imagePicker.pickImage(
+                    source: ImageSource.gallery,
+                    imageQuality: 85,
+                  );
+
+                  if (file == null) {
+                    if (!mounted) return;
+                    setModalState(() {
+                      isPickingImage = false;
+                    });
+                    return;
+                  }
+
+                  final bytes = await file.readAsBytes();
+                  final mimeType = _inferMimeType(file.path);
+                  final dataUrl =
+                      'data:$mimeType;base64,${base64Encode(bytes)}';
+
+                  if (!mounted) return;
+                  setModalState(() {
+                    isPickingImage = false;
+                    selectedImageBytes = bytes;
+                    selectedImageDataUrl = dataUrl;
+                  });
+                } catch (_) {
+                  if (!mounted) return;
+                  setModalState(() {
+                    isPickingImage = false;
+                  });
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Full name is required.')),
+                    const SnackBar(
+                      content: Text('Could not load the selected image.'),
+                    ),
+                  );
+                }
+              }
+
+              Future<void> submit() async {
+                final navigator = Navigator.of(context);
+                final rawFullname = nameController.text.trim();
+                final rawBio = bioController.text.trim();
+                final fullname =
+                    rawFullname.isEmpty || rawFullname == currentFullname
+                    ? null
+                    : rawFullname;
+                final bio = rawBio.isEmpty || rawBio == currentBio
+                    ? null
+                    : rawBio;
+                final profileUrl = selectedImageDataUrl == currentProfileUrl
+                    ? null
+                    : selectedImageDataUrl;
+
+                if (fullname == null && bio == null && profileUrl == null) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Pick at least one profile field to update.',
+                      ),
+                    ),
                   );
                   return;
                 }
@@ -373,12 +440,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   return;
                 }
 
-                navigator.pop();
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Profile updated successfully.'),
-                  ),
-                );
+                navigator.pop(true);
               }
 
               return Container(
@@ -401,7 +463,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Update your full name, bio, and profile image URL.',
+                      'Update any profile field you want. Everything here is optional.',
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark
@@ -410,20 +472,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    _ProfileImagePickerCard(
+                      imageBytes: selectedImageBytes,
+                      imageUrl: selectedImageBytes == null
+                          ? user?.profileUrl
+                          : null,
+                      isPickingImage: isPickingImage,
+                      onPickImage: isSaving || isPickingImage
+                          ? null
+                          : pickImage,
+                    ),
+                    const SizedBox(height: 12),
                     _ProfileInputField(
                       controller: nameController,
                       label: 'Full Name',
+                      hintText: 'Leave blank to keep current name',
                     ),
                     const SizedBox(height: 12),
                     _ProfileInputField(
                       controller: bioController,
                       label: 'Bio',
+                      hintText: 'Leave blank to keep current bio',
                       maxLines: 3,
-                    ),
-                    const SizedBox(height: 12),
-                    _ProfileInputField(
-                      controller: imageController,
-                      label: 'Profile Image URL',
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -447,9 +517,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       },
     );
 
+    if (didSave == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully.')),
+      );
+    }
+
     nameController.dispose();
     bioController.dispose();
-    imageController.dispose();
+  }
+
+  Uint8List? _decodeProfileImage(String? imageValue) {
+    if (imageValue == null ||
+        imageValue.isEmpty ||
+        !imageValue.startsWith('data:')) {
+      return null;
+    }
+
+    try {
+      final base64Part = imageValue.split(',').last;
+      return base64Decode(base64Part);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _inferMimeType(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
   }
 
   void _openCreatePostPopup() {
@@ -476,11 +574,13 @@ class _ProfileInputField extends StatelessWidget {
   const _ProfileInputField({
     required this.controller,
     required this.label,
+    this.hintText,
     this.maxLines = 1,
   });
 
   final TextEditingController controller;
   final String label;
+  final String? hintText;
   final int maxLines;
 
   @override
@@ -491,6 +591,7 @@ class _ProfileInputField extends StatelessWidget {
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
+        hintText: hintText,
         filled: true,
         fillColor: isDark ? const Color(0xFF16222E) : const Color(0xFFF8F8F5),
         border: OutlineInputBorder(
@@ -505,6 +606,85 @@ class _ProfileInputField extends StatelessWidget {
             color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ProfileImagePickerCard extends StatelessWidget {
+  const _ProfileImagePickerCard({
+    required this.imageBytes,
+    required this.imageUrl,
+    required this.isPickingImage,
+    this.onPickImage,
+  });
+
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+  final bool isPickingImage;
+  final VoidCallback? onPickImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF16222E) : const Color(0xFFF8F8F5),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: isDark ? const Color(0xFF111C26) : Colors.white,
+            backgroundImage: imageBytes != null
+                ? MemoryImage(imageBytes!)
+                : (imageUrl != null && imageUrl!.isNotEmpty
+                          ? NetworkImage(
+                              ApiEndpoints.profileImageUrl(imageUrl!),
+                            )
+                          : null)
+                      as ImageProvider<Object>?,
+            child: imageBytes == null && (imageUrl == null || imageUrl!.isEmpty)
+                ? const Icon(Icons.person_rounded, size: 28)
+                : null,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Profile Image',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF111111),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Choose a photo from your gallery.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark
+                        ? const Color(0xFF9BA8B4)
+                        : const Color(0xFF6E6E6E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton(
+            onPressed: onPickImage,
+            child: Text(isPickingImage ? 'Loading...' : 'Choose'),
+          ),
+        ],
       ),
     );
   }

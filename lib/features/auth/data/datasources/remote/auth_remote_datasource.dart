@@ -67,14 +67,22 @@ class AuthRemoteDatasource implements IAuthRemoteDatasource {
 
   @override
   Future<AuthApiModel?> updateProfile({
-    required String fullname,
-    required String bio,
-    required String profileUrl,
+    String? fullname,
+    String? bio,
+    String? profileUrl,
   }) async {
-    final response = await _apiClient.put(
-      ApiEndpoints.authMe,
-      data: {'fullname': fullname, 'bio': bio, 'profileUrl': profileUrl},
-    );
+    final payload = <String, dynamic>{};
+    if (fullname != null) {
+      payload['fullname'] = fullname;
+    }
+    if (bio != null) {
+      payload['bio'] = bio;
+    }
+    if (profileUrl != null) {
+      payload['profileUrl'] = profileUrl;
+    }
+
+    final response = await _apiClient.put(ApiEndpoints.authMe, data: payload);
 
     if (response.data['success'] == true) {
       final data = Map<String, dynamic>.from(response.data['data'] as Map);

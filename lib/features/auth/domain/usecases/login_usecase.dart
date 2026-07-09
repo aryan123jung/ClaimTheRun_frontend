@@ -53,15 +53,11 @@ class GetCurrentUserUsecase implements UsecaseWithoutParams<AuthEntity> {
 }
 
 class UpdateProfileUsecaseParams extends Equatable {
-  const UpdateProfileUsecaseParams({
-    required this.fullname,
-    required this.bio,
-    required this.profileUrl,
-  });
+  const UpdateProfileUsecaseParams({this.fullname, this.bio, this.profileUrl});
 
-  final String fullname;
-  final String bio;
-  final String profileUrl;
+  final String? fullname;
+  final String? bio;
+  final String? profileUrl;
 
   @override
   List<Object?> get props => [fullname, bio, profileUrl];

@@ -124,7 +124,9 @@ class ApiEndpoints {
 
   /// Profile image URL
   static String profileImageUrl(String fileName) {
-    if (fileName.startsWith('http')) return fileName;
+    if (fileName.startsWith('http') || fileName.startsWith('data:')) {
+      return fileName;
+    }
     if (fileName.contains('/') || fileName.contains('\\')) {
       return uploadUrl(fileName);
     }
