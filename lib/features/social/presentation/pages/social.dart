@@ -1,6 +1,7 @@
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/addfriend/presentation/pages/addfriendscreen.dart';
 import 'package:clain_the_run/features/addfriend/presentation/pages/friend_requests_screen.dart';
+import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
@@ -117,7 +118,13 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
   @override
   Widget build(BuildContext context) {
     final socialState = ref.watch(socialViewModelProvider);
-    final posts = socialState.posts.map(_mapPostEntityToViewModel).toList();
+    final currentUserId = ref.watch(
+      authViewModelProvider.select((state) => state.authEntity?.id),
+    );
+    final posts = socialState.posts
+        .where((post) => post.author.id != currentUserId)
+        .map(_mapPostEntityToViewModel)
+        .toList();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
