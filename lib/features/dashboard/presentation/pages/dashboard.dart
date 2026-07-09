@@ -1,19 +1,24 @@
+import 'dart:async';
+
+import 'package:clain_the_run/features/notification/presentation/view_model/notification_view_model.dart';
 import 'package:clain_the_run/features/home/presentation/pages/home.dart';
 import 'package:clain_the_run/features/leaderboard/presentation/pages/leaderboard.dart';
 import 'package:clain_the_run/features/map/presentation/pages/map.dart';
 import 'package:clain_the_run/features/profile/presentation/pages/profile.dart';
 import 'package:clain_the_run/features/social/presentation/pages/social.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _selectedIndex = 0;
+  Timer? _notificationRefreshTimer;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -22,6 +27,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     LeaderboardScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadNotifications);
+    _notificationRefreshTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      _loadNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationRefreshTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +101,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  Future<void> _loadNotifications() async {
+    await ref.read(notificationViewModelProvider.notifier).loadNotifications();
   }
 }
 
