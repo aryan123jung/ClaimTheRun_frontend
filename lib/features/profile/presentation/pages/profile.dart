@@ -1,3 +1,4 @@
+import 'package:clain_the_run/app/theme_provider.dart';
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profileheadercard.dart';
@@ -20,6 +21,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   static const _stats = [
     ProfileStatModel(
       icon: Icons.show_chart_rounded,
@@ -93,7 +96,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(fullName)}&background=E6F3DC&color=3B6D11';
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: theme.scaffoldBackgroundColor,
+      drawer: _ProfileDrawer(
+        isDarkMode: isDark,
+        onThemeChanged: (enabled) {
+          ref
+              .read(themeModeProvider.notifier)
+              .setThemeMode(enabled ? ThemeMode.dark : ThemeMode.light);
+        },
+      ),
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -102,13 +114,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             children: [
-              Text(
-                'Profile',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white : const Color(0xFF111111),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Profile',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white : const Color(0xFF111111),
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                    child: Icon(
+                      Icons.menu,
+                      size: 28,
+                      color: isDark ? Colors.white : const Color(0xFF222222),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 2),
               Text(
@@ -546,4 +572,75 @@ PostModel _mapPostEntityToViewModel(PostEntity post) {
     commentCount: post.commentCount,
     isLiked: post.isLiked,
   );
+}
+
+class _ProfileDrawer extends StatelessWidget {
+  const _ProfileDrawer({
+    required this.isDarkMode,
+    required this.onThemeChanged,
+  });
+
+  final bool isDarkMode;
+  final ValueChanged<bool> onThemeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Drawer(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Settings',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDarkMode
+                        ? const Color(0xFF233241)
+                        : const Color(0xFFE2E2DF),
+                  ),
+                ),
+                child: SwitchListTile(
+                  value: isDarkMode,
+                  onChanged: onThemeChanged,
+                  activeThumbColor: const Color(0xFF2CC76F),
+                  title: Text(
+                    'Dark Mode',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: theme.textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Switch the app appearance',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDarkMode
+                          ? const Color(0xFF9BA8B4)
+                          : const Color(0xFF7B7B7B),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
