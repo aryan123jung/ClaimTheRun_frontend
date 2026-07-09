@@ -113,86 +113,91 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
               ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                children: [
-                  _FriendHeroCard(
-                    friend: widget.friend,
-                    bio: widget.bio,
-                    totalRuns: widget.totalRuns,
-                    postCount: widget.postCount,
-                    actionLabel: _actionLabel,
-                    isSubmitting: _isSubmitting,
-                    onFriendAction: _actionLabel == null
-                        ? null
-                        : _handleFriendAction,
-                  ),
-                  const SizedBox(height: 22),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'My Stats',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? Colors.white
-                                : const Color(0xFF111111),
+              child: RefreshIndicator(
+                onRefresh: _refreshProfile,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                  children: [
+                    _FriendHeroCard(
+                      friend: widget.friend,
+                      bio: widget.bio,
+                      totalRuns: widget.totalRuns,
+                      postCount: widget.postCount,
+                      actionLabel: _actionLabel,
+                      isSubmitting: _isSubmitting,
+                      onFriendAction: _actionLabel == null
+                          ? null
+                          : _handleFriendAction,
+                    ),
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'My Stats',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF111111),
+                            ),
                           ),
                         ),
-                      ),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => showAllStatsSheet(context, stats: stats),
-                          borderRadius: BorderRadius.circular(20),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 4,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'See more',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () =>
+                                showAllStatsSheet(context, stats: stats),
+                            borderRadius: BorderRadius.circular(20),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 4,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'See more',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF3B6D11),
+                                    ),
+                                  ),
+                                  SizedBox(width: 2),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
                                     color: Color(0xFF3B6D11),
                                   ),
-                                ),
-                                SizedBox(width: 2),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 18,
-                                  color: Color(0xFF3B6D11),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _StatsCard(stats: stats.sublist(0, 3)),
-                  const SizedBox(height: 22),
-                  Text(
-                    'Posts',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF111111),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  for (final post in widget.posts) ...[
-                    PostCard(post: post),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+                    _StatsCard(stats: stats.sublist(0, 3)),
+                    const SizedBox(height: 22),
+                    Text(
+                      'Posts',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF111111),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    for (final post in widget.posts) ...[
+                      PostCard(post: post),
+                      const SizedBox(height: 16),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -247,6 +252,10 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
       default:
         return 'Updated successfully.';
     }
+  }
+
+  Future<void> _refreshProfile() async {
+    await Future<void>.delayed(const Duration(milliseconds: 500));
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:clain_the_run/app/theme_provider.dart';
 import 'package:clain_the_run/features/notification/presentation/pages/notification.dart';
+import 'package:clain_the_run/features/notification/presentation/view_model/notification_view_model.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/rundetails.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(
+      () =>
+          ref.read(notificationViewModelProvider.notifier).loadNotifications(),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -39,64 +49,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _HomeHeader(
-                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-              ),
-              const SizedBox(height: 14),
-              const _StreakCard(),
-              const SizedBox(height: 12),
-
-              _RunMapCard(
-                selectedRunMode: _selectedRunMode,
-                onRunModeChanged: (mode) {
-                  setState(() {
-                    _selectedRunMode = mode;
-                  });
-                },
-                onStartRunPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Starting ${_selectedRunMode.name} run...'),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 0),
-
-              Text(
-                'Your Progress',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF111111),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            await ref
+                .read(notificationViewModelProvider.notifier)
+                .loadNotifications();
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Home refreshed.')),
+            );
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _HomeHeader(
+                  onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
                 ),
-              ),
+                const SizedBox(height: 14),
+                const _StreakCard(),
+                const SizedBox(height: 12),
 
-              const SizedBox(height: 10),
-              const _ProgressSection(),
-
-              const SizedBox(height: 16),
-
-              Text(
-                'Recent Activity',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF111111),
+                _RunMapCard(
+                  selectedRunMode: _selectedRunMode,
+                  onRunModeChanged: (mode) {
+                    setState(() {
+                      _selectedRunMode = mode;
+                    });
+                  },
+                  onStartRunPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Starting ${_selectedRunMode.name} run...',
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
 
-              const SizedBox(height: 10),
-              const _RecentActivitySection(),
+                const SizedBox(height: 0),
 
-              const SizedBox(height: 8),
-            ],
+                Text(
+                  'Your Progress',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF111111),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+                const _ProgressSection(),
+
+                const SizedBox(height: 16),
+
+                Text(
+                  'Recent Activity',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF111111),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+                const _RecentActivitySection(),
+
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
@@ -104,14 +128,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _HomeHeader extends StatelessWidget {
+class _HomeHeader extends ConsumerWidget {
   const _HomeHeader({required this.onMenuTap});
 
   final VoidCallback onMenuTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final unreadCount = ref.watch(
+      notificationViewModelProvider.select(
+        (state) => state.notifications.where((item) => !item.isRead).length,
+      ),
+    );
 
     return Row(
       children: [
@@ -162,23 +191,58 @@ class _HomeHeader extends StatelessWidget {
               ),
             );
           },
-          child: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF111C26) : Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFF233241)
-                    : const Color(0xFFE3E3DF),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF111C26) : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF233241)
+                        : const Color(0xFFE3E3DF),
+                  ),
+                ),
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  size: 24,
+                  color: isDark ? Colors.white : const Color(0xFF2A2430),
+                ),
               ),
-            ),
-            child: Icon(
-              Icons.notifications_none_rounded,
-              size: 24,
-              color: isDark ? Colors.white : const Color(0xFF2A2430),
-            ),
+              if (unreadCount > 0)
+                Positioned(
+                  top: -3,
+                  right: -5,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE53935),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(4),
+                      ),
+                    ),
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],

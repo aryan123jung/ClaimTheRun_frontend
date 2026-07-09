@@ -81,182 +81,193 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          children: [
-            Text(
-              'Profile',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white : const Color(0xFF111111),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Track your progress. Own your journey.',
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark
-                    ? const Color(0xFF9BA8B4)
-                    : const Color(0xFF6E6E6E),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ProfileHeaderCard(
-              name: 'Aryan Jung Chhetri',
-              bio: 'Live in the present moment',
-              avatarUrl: 'https://i.pravatar.cc/150?img=11',
-              runCount: 47,
-              territoryCount: 1,
-              postCount: myPosts.length,
-            ),
-            const SizedBox(height: 22),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'My Stats',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF111111),
-                    ),
-                  ),
+        child: RefreshIndicator(
+          onRefresh: _refreshProfile,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            children: [
+              Text(
+                'Profile',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white : const Color(0xFF111111),
                 ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => showAllStatsSheet(context, stats: _stats),
-                    borderRadius: BorderRadius.circular(20),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'See more',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF3B6D11),
-                            ),
-                          ),
-                          SizedBox(width: 2),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            size: 18,
-                            color: Color(0xFF3B6D11),
-                          ),
-                        ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Track your progress. Own your journey.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF6E6E6E),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ProfileHeaderCard(
+                name: 'Aryan Jung Chhetri',
+                bio: 'Live in the present moment',
+                avatarUrl: 'https://i.pravatar.cc/150?img=11',
+                runCount: 47,
+                territoryCount: 1,
+                postCount: myPosts.length,
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'My Stats',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF111C26) : Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF233241)
-                      : const Color(0xFFD8D8D5),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.07),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => showAllStatsSheet(context, stats: _stats),
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'See more',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF3B6D11),
+                              ),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 18,
+                              color: Color(0xFF3B6D11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: Row(
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF111C26) : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0xFF233241)
+                        : const Color(0xFFD8D8D5),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.07),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < 3; i++)
+                      ProfileStatTile(stat: _stats[i], showDivider: i != 2),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                'Activity Summary',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF111111),
+                ),
+              ),
+              const SizedBox(height: 10),
+              WeeklyActivityChart(
+                days: _weekDays,
+                totalDistanceKm: 57.8,
+                totalTime: '5:42:18',
+                avgPace: "5'55\" / km",
+              ),
+              const SizedBox(height: 22),
+              Row(
                 children: [
-                  for (var i = 0; i < 3; i++)
-                    ProfileStatTile(stat: _stats[i], showDivider: i != 2),
+                  Expanded(
+                    child: Text(
+                      'My Posts',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : const Color(0xFF111111),
+                      ),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _openCreatePostPopup,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Add Post'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF3B6D11),
+                      side: BorderSide(
+                        color: const Color(0xFF3B6D11).withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 22),
-            Text(
-              'Activity Summary',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : const Color(0xFF111111),
-              ),
-            ),
-            const SizedBox(height: 10),
-            WeeklyActivityChart(
-              days: _weekDays,
-              totalDistanceKm: 57.8,
-              totalTime: '5:42:18',
-              avgPace: "5'55\" / km",
-            ),
-            const SizedBox(height: 22),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'My Posts',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF111111),
-                    ),
-                  ),
+              const SizedBox(height: 10),
+              if (socialState.status == SocialStatus.loading && myPosts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 30),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (socialState.errorMessage != null && myPosts.isEmpty)
+                _ProfilePostMessage(
+                  message: socialState.errorMessage!,
+                  actionLabel: 'Retry',
+                  onTap: () {
+                    ref.read(socialViewModelProvider.notifier).loadMyPosts();
+                  },
+                )
+              else if (myPosts.isEmpty)
+                _ProfilePostMessage(
+                  message: 'You have not posted anything yet.',
+                  actionLabel: 'Create one',
+                  onTap: _openCreatePostPopup,
                 ),
-                OutlinedButton.icon(
-                  onPressed: _openCreatePostPopup,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add Post'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF3B6D11),
-                    side: BorderSide(
-                      color: const Color(0xFF3B6D11).withValues(alpha: 0.3),
-                    ),
-                  ),
+              for (final post in myPosts) ...[
+                PostCard(
+                  post: post,
+                  onLike: () {
+                    ref
+                        .read(socialViewModelProvider.notifier)
+                        .toggleLike(post.id);
+                  },
                 ),
+                const SizedBox(height: 12),
               ],
-            ),
-            const SizedBox(height: 10),
-            if (socialState.status == SocialStatus.loading && myPosts.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (socialState.errorMessage != null && myPosts.isEmpty)
-              _ProfilePostMessage(
-                message: socialState.errorMessage!,
-                actionLabel: 'Retry',
-                onTap: () {
-                  ref.read(socialViewModelProvider.notifier).loadMyPosts();
-                },
-              )
-            else if (myPosts.isEmpty)
-              _ProfilePostMessage(
-                message: 'You have not posted anything yet.',
-                actionLabel: 'Create one',
-                onTap: _openCreatePostPopup,
-              ),
-            for (final post in myPosts) ...[
-              PostCard(
-                post: post,
-                onLike: () {
-                  ref
-                      .read(socialViewModelProvider.notifier)
-                      .toggleLike(post.id);
-                },
-              ),
-              const SizedBox(height: 12),
             ],
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _refreshProfile() async {
+    await ref.read(socialViewModelProvider.notifier).loadMyPosts();
   }
 
   void _openCreatePostPopup() {

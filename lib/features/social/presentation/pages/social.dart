@@ -290,31 +290,37 @@ class _FeedTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-      children: [
-        _PostComposer(onTap: onCreatePost),
-        const SizedBox(height: 14),
-        if (isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (errorMessage != null && posts.isEmpty)
-          _FeedMessageCard(
-            message: errorMessage!,
-            actionLabel: 'Retry',
-            onTap: onRetry,
-          )
-        else if (posts.isEmpty)
-          const _FeedMessageCard(
-            message: 'No personal posts yet. Share your first run update.',
-          ),
-        for (final post in posts) ...[
-          PostCard(post: post, onLike: () => onLike(post.id)),
+    return RefreshIndicator(
+      onRefresh: () async {
+        onRetry?.call();
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+        children: [
+          _PostComposer(onTap: onCreatePost),
           const SizedBox(height: 14),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (errorMessage != null && posts.isEmpty)
+            _FeedMessageCard(
+              message: errorMessage!,
+              actionLabel: 'Retry',
+              onTap: onRetry,
+            )
+          else if (posts.isEmpty)
+            const _FeedMessageCard(
+              message: 'No personal posts yet. Share your first run update.',
+            ),
+          for (final post in posts) ...[
+            PostCard(post: post, onLike: () => onLike(post.id)),
+            const SizedBox(height: 14),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -326,78 +332,77 @@ class _FriendsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
-          child: _SearchField(hint: 'Search friends...'),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              const Text(
-                'Friends',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111111),
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const FriendRequestsScreen(),
-                    ),
-                  );
-                },
-                child: const Text(
-                  'Friend Requests',
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+        children: [
+          const _SearchField(hint: 'Search friends...'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+            child: Row(
+              children: [
+                const Text(
+                  'Friends',
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF3B6D11),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111111),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Total Friends: ${friends.length}',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF9A9A9A)),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            itemCount: friends.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final friend = friends[index];
-
-              return FriendCard(
-                friend: friend,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => FriendProfileScreen(
-                        friend: friend,
-                        bio: _friendBio(friend.name),
-                        totalRuns: _friendRuns(friend.name),
-                        postCount: _friendPosts(friend.name).length,
-                        posts: _friendPosts(friend.name),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const FriendRequestsScreen(),
                       ),
+                    );
+                  },
+                  child: const Text(
+                    'Friend Requests',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF3B6D11),
                     ),
-                  );
-                },
-              );
-            },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Total Friends: ${friends.length}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF9A9A9A),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+          for (final friend in friends) ...[
+            FriendCard(
+              friend: friend,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => FriendProfileScreen(
+                      friend: friend,
+                      bio: _friendBio(friend.name),
+                      totalRuns: _friendRuns(friend.name),
+                      postCount: _friendPosts(friend.name).length,
+                      posts: _friendPosts(friend.name),
+                    ),
+                  ),
+                );
+              },
+            ),
+            if (friend != friends.last) const SizedBox(height: 10),
+          ],
+        ],
+      ),
     );
   }
 }
