@@ -157,6 +157,7 @@ class ApiEndpoints {
   static const String authRegister = '/auth/register';
   static const String authUsers = '/auth/users';
   static const String whoAmI = '/auth/whoami';
+  static const String authMe = '/auth/me';
   static String getCurrentUserById(String userId) => '/auth/user/$userId';
   static String reportUser(String userId) => '/auth/user/$userId/report';
 

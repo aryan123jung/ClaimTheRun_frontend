@@ -1,4 +1,5 @@
 import 'package:clain_the_run/core/api/api_endpoints.dart';
+import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profileheadercard.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profilestattile.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/statsheet.dart';
@@ -66,16 +67,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void initState() {
     super.initState();
     Future.microtask(
+      () => ref.read(authViewModelProvider.notifier).loadCurrentUser(),
+    );
+    Future.microtask(
       () => ref.read(socialViewModelProvider.notifier).loadMyPosts(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authViewModelProvider);
+    final user = authState.authEntity;
     final socialState = ref.watch(socialViewModelProvider);
     final myPosts = socialState.myPosts.map(_mapPostEntityToViewModel).toList();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final fullName = user?.fullname.trim().isNotEmpty == true
+        ? user!.fullname
+        : 'Runner';
+    final bio = user?.bio?.trim().isNotEmpty == true
+        ? user!.bio!.trim()
+        : 'Add a short bio from Edit Profile.';
+    final avatarUrl = (user?.profileUrl != null && user!.profileUrl!.isNotEmpty)
+        ? ApiEndpoints.profileImageUrl(user.profileUrl!)
+        : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(fullName)}&background=E6F3DC&color=3B6D11';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -107,12 +122,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               ProfileHeaderCard(
-                name: 'Aryan Jung Chhetri',
-                bio: 'Live in the present moment',
-                avatarUrl: 'https://i.pravatar.cc/150?img=11',
+                name: fullName,
+                bio: bio,
+                avatarUrl: avatarUrl,
                 runCount: 47,
                 territoryCount: 1,
                 postCount: myPosts.length,
+                onEditAvatar: _openEditProfileSheet,
+                onEditProfile: _openEditProfileSheet,
               ),
               const SizedBox(height: 22),
               Row(
@@ -267,7 +284,146 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _refreshProfile() async {
+    await ref.read(authViewModelProvider.notifier).loadCurrentUser();
     await ref.read(socialViewModelProvider.notifier).loadMyPosts();
+  }
+
+  Future<void> _openEditProfileSheet() async {
+    final user = ref.read(authViewModelProvider).authEntity;
+    final nameController = TextEditingController(text: user?.fullname ?? '');
+    final bioController = TextEditingController(text: user?.bio ?? '');
+    final imageController = TextEditingController(text: user?.profileUrl ?? '');
+    bool isSaving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            top: 24,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              Future<void> submit() async {
+                final fullname = nameController.text.trim();
+                final bio = bioController.text.trim();
+                final profileUrl = imageController.text.trim();
+                final messenger = ScaffoldMessenger.of(this.context);
+                final navigator = Navigator.of(context);
+
+                if (fullname.isEmpty) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Full name is required.')),
+                  );
+                  return;
+                }
+
+                setModalState(() {
+                  isSaving = true;
+                });
+
+                final message = await ref
+                    .read(authViewModelProvider.notifier)
+                    .updateProfile(
+                      fullname: fullname,
+                      bio: bio,
+                      profileUrl: profileUrl,
+                    );
+
+                if (!mounted) return;
+
+                setModalState(() {
+                  isSaving = false;
+                });
+
+                if (message != null) {
+                  messenger.showSnackBar(SnackBar(content: Text(message)));
+                  return;
+                }
+
+                navigator.pop();
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Profile updated successfully.'),
+                  ),
+                );
+              }
+
+              return Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF111C26) : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Edit Profile',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF111111),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Update your full name, bio, and profile image URL.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF6E6E6E),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _ProfileInputField(
+                      controller: nameController,
+                      label: 'Full Name',
+                    ),
+                    const SizedBox(height: 12),
+                    _ProfileInputField(
+                      controller: bioController,
+                      label: 'Bio',
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 12),
+                    _ProfileInputField(
+                      controller: imageController,
+                      label: 'Profile Image URL',
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isSaving ? null : submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF72B63E),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(isSaving ? 'Saving...' : 'Save Changes'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    nameController.dispose();
+    bioController.dispose();
+    imageController.dispose();
   }
 
   void _openCreatePostPopup() {
@@ -286,6 +442,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SnackBar(content: Text('Post uploaded successfully.')),
         );
       },
+    );
+  }
+}
+
+class _ProfileInputField extends StatelessWidget {
+  const _ProfileInputField({
+    required this.controller,
+    required this.label,
+    this.maxLines = 1,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: isDark ? const Color(0xFF16222E) : const Color(0xFFF8F8F5),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF233241) : const Color(0xFFD8D8D5),
+          ),
+        ),
+      ),
     );
   }
 }

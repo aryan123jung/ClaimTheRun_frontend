@@ -7,6 +7,7 @@ class AuthApiModel {
     required this.email,
     required this.username,
     this.password,
+    this.bio,
     this.profileUrl,
     this.token,
   });
@@ -16,6 +17,7 @@ class AuthApiModel {
   final String email;
   final String username;
   final String? password;
+  final String? bio;
   final String? profileUrl;
   final String? token;
 
@@ -26,6 +28,7 @@ class AuthApiModel {
       email: (json['email'] ?? '').toString(),
       username: (json['username'] ?? '').toString(),
       password: json['password']?.toString(),
+      bio: json['bio']?.toString(),
       profileUrl: json['profileUrl']?.toString(),
       token: json['token']?.toString(),
     );
@@ -37,6 +40,7 @@ class AuthApiModel {
       'email': email,
       'username': username,
       'password': password,
+      if (bio != null) 'bio': bio,
       if (profileUrl != null) 'profileUrl': profileUrl,
     };
   }
@@ -48,6 +52,7 @@ class AuthApiModel {
       email: email,
       username: username,
       password: password,
+      bio: bio,
       profileUrl: profileUrl,
       token: token,
     );
@@ -60,6 +65,7 @@ class AuthApiModel {
       email: entity.email,
       username: entity.username,
       password: entity.password,
+      bio: entity.bio,
       profileUrl: entity.profileUrl,
       token: entity.token,
     );

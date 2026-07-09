@@ -5,4 +5,10 @@ import 'package:dartz/dartz.dart';
 abstract interface class IAuthRepository {
   Future<Either<Failure, AuthEntity>> register(AuthEntity entity);
   Future<Either<Failure, AuthEntity>> login(String email, String password);
+  Future<Either<Failure, AuthEntity>> getCurrentUser();
+  Future<Either<Failure, AuthEntity>> updateProfile({
+    required String fullname,
+    required String bio,
+    required String profileUrl,
+  });
 }

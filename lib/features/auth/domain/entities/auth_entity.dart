@@ -7,6 +7,7 @@ class AuthEntity extends Equatable {
     required this.email,
     required this.username,
     this.password,
+    this.bio,
     this.profileUrl,
     this.token,
   });
@@ -16,6 +17,7 @@ class AuthEntity extends Equatable {
   final String email;
   final String username;
   final String? password;
+  final String? bio;
   final String? profileUrl;
   final String? token;
 
@@ -25,6 +27,7 @@ class AuthEntity extends Equatable {
     String? email,
     String? username,
     String? password,
+    String? bio,
     String? profileUrl,
     String? token,
   }) {
@@ -34,6 +37,7 @@ class AuthEntity extends Equatable {
       email: email ?? this.email,
       username: username ?? this.username,
       password: password ?? this.password,
+      bio: bio ?? this.bio,
       profileUrl: profileUrl ?? this.profileUrl,
       token: token ?? this.token,
     );
@@ -46,6 +50,7 @@ class AuthEntity extends Equatable {
     email,
     username,
     password,
+    bio,
     profileUrl,
     token,
   ];

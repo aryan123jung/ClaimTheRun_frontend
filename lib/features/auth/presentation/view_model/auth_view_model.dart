@@ -10,11 +10,15 @@ final authViewModelProvider = NotifierProvider<AuthViewModel, AuthState>(
 class AuthViewModel extends Notifier<AuthState> {
   static const _minimumButtonLoaderDuration = Duration(milliseconds: 1500);
   late final LoginUsecase _loginUsecase;
+  late final GetCurrentUserUsecase _getCurrentUserUsecase;
+  late final UpdateProfileUsecase _updateProfileUsecase;
   late final RegisterUsecase _registerUsecase;
 
   @override
   AuthState build() {
     _loginUsecase = ref.read(loginUsecaseProvider);
+    _getCurrentUserUsecase = ref.read(getCurrentUserUsecaseProvider);
+    _updateProfileUsecase = ref.read(updateProfileUsecaseProvider);
     _registerUsecase = ref.read(registerUsecaseProvider);
     return const AuthState.initial();
   }
@@ -69,6 +73,47 @@ class AuthViewModel extends Notifier<AuthState> {
 
   void resetState() {
     state = const AuthState.initial();
+  }
+
+  Future<void> loadCurrentUser() async {
+    final result = await _getCurrentUserUsecase();
+    result.fold(
+      (failure) => state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: failure.message,
+      ),
+      (user) =>
+          state = AuthState(status: AuthStatus.authenticated, authEntity: user),
+    );
+  }
+
+  Future<String?> updateProfile({
+    required String fullname,
+    required String bio,
+    required String profileUrl,
+  }) async {
+    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+    final result = await _updateProfileUsecase(
+      UpdateProfileUsecaseParams(
+        fullname: fullname,
+        bio: bio,
+        profileUrl: profileUrl,
+      ),
+    );
+
+    return result.fold(
+      (failure) {
+        state = state.copyWith(
+          status: AuthStatus.error,
+          errorMessage: failure.message,
+        );
+        return failure.message;
+      },
+      (user) {
+        state = AuthState(status: AuthStatus.authenticated, authEntity: user);
+        return null;
+      },
+    );
   }
 
   Future<T> _runWithMinimumLoader<T>(Future<T> Function() action) async {

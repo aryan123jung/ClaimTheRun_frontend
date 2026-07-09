@@ -33,3 +33,57 @@ class LoginUsecase
     return _authRepository.login(params.email, params.password);
   }
 }
+
+final getCurrentUserUsecaseProvider = Provider<GetCurrentUserUsecase>((ref) {
+  return GetCurrentUserUsecase(
+    authRepository: ref.read(authRepositoryProvider),
+  );
+});
+
+class GetCurrentUserUsecase implements UsecaseWithoutParams<AuthEntity> {
+  GetCurrentUserUsecase({required IAuthRepository authRepository})
+    : _authRepository = authRepository;
+
+  final IAuthRepository _authRepository;
+
+  @override
+  Future<Either<Failure, AuthEntity>> call() {
+    return _authRepository.getCurrentUser();
+  }
+}
+
+class UpdateProfileUsecaseParams extends Equatable {
+  const UpdateProfileUsecaseParams({
+    required this.fullname,
+    required this.bio,
+    required this.profileUrl,
+  });
+
+  final String fullname;
+  final String bio;
+  final String profileUrl;
+
+  @override
+  List<Object?> get props => [fullname, bio, profileUrl];
+}
+
+final updateProfileUsecaseProvider = Provider<UpdateProfileUsecase>((ref) {
+  return UpdateProfileUsecase(authRepository: ref.read(authRepositoryProvider));
+});
+
+class UpdateProfileUsecase
+    implements UsecaseWithParams<AuthEntity, UpdateProfileUsecaseParams> {
+  UpdateProfileUsecase({required IAuthRepository authRepository})
+    : _authRepository = authRepository;
+
+  final IAuthRepository _authRepository;
+
+  @override
+  Future<Either<Failure, AuthEntity>> call(UpdateProfileUsecaseParams params) {
+    return _authRepository.updateProfile(
+      fullname: params.fullname,
+      bio: params.bio,
+      profileUrl: params.profileUrl,
+    );
+  }
+}

@@ -10,6 +10,7 @@ class ProfileHeaderCard extends StatelessWidget {
     required this.territoryCount,
     required this.postCount,
     this.onEditAvatar,
+    this.onEditProfile,
   });
 
   final String name;
@@ -19,6 +20,7 @@ class ProfileHeaderCard extends StatelessWidget {
   final int territoryCount;
   final int postCount;
   final VoidCallback? onEditAvatar;
+  final VoidCallback? onEditProfile;
 
   static const _brandGreen = Color(0xFF72B63E);
 
@@ -97,6 +99,22 @@ class ProfileHeaderCard extends StatelessWidget {
                         : const Color(0xFF6E6E6E),
                   ),
                 ),
+                const SizedBox(height: 10),
+                if (onEditProfile != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: onEditProfile,
+                      icon: const Icon(Icons.edit_rounded, size: 16),
+                      label: const Text('Edit Profile'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _brandGreen,
+                        side: BorderSide(
+                          color: _brandGreen.withValues(alpha: 0.35),
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(

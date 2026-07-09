@@ -65,6 +65,54 @@ class AuthRepository implements IAuthRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, AuthEntity>> getCurrentUser() async {
+    try {
+      final user = await _authRemoteDatasource.getCurrentUser();
+      if (user == null) {
+        return const Left(ApiFailure(message: 'Could not load profile'));
+      }
+      return Right(user.toEntity());
+    } on DioException catch (error) {
+      return Left(
+        ApiFailure(
+          message: _extractErrorMessage(error) ?? 'Could not load profile',
+          statusCode: error.response?.statusCode,
+        ),
+      );
+    } catch (error) {
+      return Left(ApiFailure(message: error.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, AuthEntity>> updateProfile({
+    required String fullname,
+    required String bio,
+    required String profileUrl,
+  }) async {
+    try {
+      final user = await _authRemoteDatasource.updateProfile(
+        fullname: fullname,
+        bio: bio,
+        profileUrl: profileUrl,
+      );
+      if (user == null) {
+        return const Left(ApiFailure(message: 'Profile update failed'));
+      }
+      return Right(user.toEntity());
+    } on DioException catch (error) {
+      return Left(
+        ApiFailure(
+          message: _extractErrorMessage(error) ?? 'Profile update failed',
+          statusCode: error.response?.statusCode,
+        ),
+      );
+    } catch (error) {
+      return Left(ApiFailure(message: error.toString()));
+    }
+  }
+
   String? _extractErrorMessage(DioException error) {
     final data = error.response?.data;
     if (data is Map<String, dynamic>) {
