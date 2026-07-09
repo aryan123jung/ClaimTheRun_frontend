@@ -13,7 +13,7 @@ class ApiEndpoints {
   //    flutter run --dart-define=API_HOST_ANDROID=10.0.2.2
   // 3) iOS simulator:
   //    flutter run --dart-define=API_HOST_IOS=localhost
-  // 4) Full URL override (highest priority):
+  // 4bag) Full URL override (highest priority):
   //    flutter run --dart-define=API_BASE_URL=http://192.168.1.70:6060/api
   //    flutter run --dart-define=API_UPLOAD_BASE_URL=http://192.168.1.70:6060
   static const String apiBaseUrlOverride = String.fromEnvironment(

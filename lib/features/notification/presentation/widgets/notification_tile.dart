@@ -10,6 +10,8 @@ class AppNotificationModel {
     required this.avatarUrl,
     required this.type,
     this.isUnread = false,
+    this.primaryActionLabel,
+    this.secondaryActionLabel,
   });
 
   final String title;
@@ -18,13 +20,23 @@ class AppNotificationModel {
   final String avatarUrl;
   final NotificationType type;
   final bool isUnread;
+  final String? primaryActionLabel;
+  final String? secondaryActionLabel;
 }
 
 class NotificationTile extends StatelessWidget {
-  const NotificationTile({super.key, required this.notification, this.onTap});
+  const NotificationTile({
+    super.key,
+    required this.notification,
+    this.onTap,
+    this.onPrimaryAction,
+    this.onSecondaryAction,
+  });
 
   final AppNotificationModel notification;
   final VoidCallback? onTap;
+  final VoidCallback? onPrimaryAction;
+  final VoidCallback? onSecondaryAction;
 
   @override
   Widget build(BuildContext context) {
@@ -58,81 +70,107 @@ class NotificationTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
           children: [
-            Stack(
-              clipBehavior: Clip.none,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: NetworkImage(notification.avatarUrl),
-                ),
-                Positioned(
-                  right: -2,
-                  bottom: -2,
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: _accentColor(notification.type),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundImage: NetworkImage(notification.avatarUrl),
                     ),
-                    child: Icon(
-                      _icon(notification.type),
-                      size: 12,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          notification.title,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? Colors.white
-                                : const Color(0xFF181818),
-                          ),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: _accentColor(notification.type),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: Icon(
+                          _icon(notification.type),
+                          size: 12,
+                          color: Colors.white,
                         ),
                       ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              notification.title,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF181818),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            notification.timeLabel,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? const Color(0xFF9BA8B4)
+                                  : const Color(0xFF8E8E8E),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
                       Text(
-                        notification.timeLabel,
+                        notification.message,
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          height: 1.35,
                           color: isDark
-                              ? const Color(0xFF9BA8B4)
-                              : const Color(0xFF8E8E8E),
+                              ? const Color(0xFFB3BEC8)
+                              : const Color(0xFF696969),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    notification.message,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.35,
-                      color: isDark
-                          ? const Color(0xFFB3BEC8)
-                          : const Color(0xFF696969),
+                ),
+              ],
+            ),
+            if (notification.primaryActionLabel != null ||
+                notification.secondaryActionLabel != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  if (notification.primaryActionLabel != null)
+                    _InlineActionButton(
+                      label: notification.primaryActionLabel!,
+                      onTap: onPrimaryAction,
+                      isPrimary: true,
                     ),
-                  ),
+                  if (notification.secondaryActionLabel != null) ...[
+                    const SizedBox(width: 10),
+                    _InlineActionButton(
+                      label: notification.secondaryActionLabel!,
+                      onTap: onSecondaryAction,
+                      isPrimary: false,
+                    ),
+                  ],
                 ],
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -163,5 +201,32 @@ class NotificationTile extends StatelessWidget {
       case NotificationType.groupPost:
         return const Color(0xFF8A66D9);
     }
+  }
+}
+
+class _InlineActionButton extends StatelessWidget {
+  const _InlineActionButton({
+    required this.label,
+    required this.isPrimary,
+    this.onTap,
+  });
+
+  final String label;
+  final bool isPrimary;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: isPrimary ? Colors.white : const Color(0xFF606060),
+        backgroundColor: isPrimary ? const Color(0xFF55A63A) : Colors.white,
+        side: BorderSide(
+          color: isPrimary ? const Color(0xFF55A63A) : const Color(0xFFD8D8D5),
+        ),
+      ),
+      child: Text(label),
+    );
   }
 }

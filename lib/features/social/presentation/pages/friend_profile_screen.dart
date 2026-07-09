@@ -5,7 +5,7 @@ import 'package:clain_the_run/features/social/presentation/widgets/friendcard.da
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
 import 'package:flutter/material.dart';
 
-class FriendProfileScreen extends StatelessWidget {
+class FriendProfileScreen extends StatefulWidget {
   const FriendProfileScreen({
     super.key,
     required this.friend,
@@ -13,6 +13,8 @@ class FriendProfileScreen extends StatelessWidget {
     this.bio = 'Just chilllll guysss',
     this.totalRuns = 20,
     this.postCount = 1,
+    this.friendActionLabel,
+    this.onFriendAction,
   });
 
   final FriendModel friend;
@@ -20,6 +22,22 @@ class FriendProfileScreen extends StatelessWidget {
   final String bio;
   final int totalRuns;
   final int postCount;
+  final String? friendActionLabel;
+  final Future<String?> Function(String currentLabel)? onFriendAction;
+
+  @override
+  State<FriendProfileScreen> createState() => _FriendProfileScreenState();
+}
+
+class _FriendProfileScreenState extends State<FriendProfileScreen> {
+  String? _actionLabel;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _actionLabel = widget.friendActionLabel;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +46,7 @@ class FriendProfileScreen extends StatelessWidget {
       ProfileStatModel(
         icon: Icons.show_chart_rounded,
         iconColor: const Color(0xFF72B63E),
-        value: friend.totalKm.toStringAsFixed(1),
+        value: widget.friend.totalKm.toStringAsFixed(1),
         label: 'Total Km',
       ),
       const ProfileStatModel(
@@ -52,7 +70,7 @@ class FriendProfileScreen extends StatelessWidget {
       ProfileStatModel(
         icon: Icons.directions_run_rounded,
         iconColor: const Color(0xFFB03A3A),
-        value: '$totalRuns',
+        value: '${widget.totalRuns}',
         label: 'Total Runs',
       ),
     ];
@@ -83,8 +101,8 @@ class FriendProfileScreen extends StatelessWidget {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => ChatScreen(
-                            name: friend.name,
-                            avatarUrl: friend.avatarUrl,
+                            name: widget.friend.name,
+                            avatarUrl: widget.friend.avatarUrl,
                             isOnline: true,
                           ),
                         ),
@@ -99,10 +117,15 @@ class FriendProfileScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
                 children: [
                   _FriendHeroCard(
-                    friend: friend,
-                    bio: bio,
-                    totalRuns: totalRuns,
-                    postCount: postCount,
+                    friend: widget.friend,
+                    bio: widget.bio,
+                    totalRuns: widget.totalRuns,
+                    postCount: widget.postCount,
+                    actionLabel: _actionLabel,
+                    isSubmitting: _isSubmitting,
+                    onFriendAction: _actionLabel == null
+                        ? null
+                        : _handleFriendAction,
                   ),
                   const SizedBox(height: 22),
                   Row(
@@ -165,7 +188,7 @@ class FriendProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  for (final post in posts) ...[
+                  for (final post in widget.posts) ...[
                     PostCard(post: post),
                     const SizedBox(height: 16),
                   ],
@@ -177,6 +200,54 @@ class FriendProfileScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _handleFriendAction() async {
+    final label = _actionLabel;
+    final handler = widget.onFriendAction;
+    if (label == null || handler == null || _isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final message = await handler(label);
+    if (!mounted) return;
+
+    setState(() {
+      _isSubmitting = false;
+      _actionLabel = _nextActionLabel(label);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message ?? _defaultSuccessMessage(label))),
+    );
+  }
+
+  String? _nextActionLabel(String currentLabel) {
+    switch (currentLabel) {
+      case 'Remove Friend':
+        return 'Add Friend';
+      case 'Add Friend':
+        return 'Cancel Request';
+      case 'Cancel Request':
+        return 'Add Friend';
+      default:
+        return currentLabel;
+    }
+  }
+
+  String _defaultSuccessMessage(String currentLabel) {
+    switch (currentLabel) {
+      case 'Remove Friend':
+        return 'Friend removed successfully.';
+      case 'Add Friend':
+        return 'Friend request sent.';
+      case 'Cancel Request':
+        return 'Friend request cancelled.';
+      default:
+        return 'Updated successfully.';
+    }
+  }
 }
 
 class _FriendHeroCard extends StatelessWidget {
@@ -185,12 +256,18 @@ class _FriendHeroCard extends StatelessWidget {
     required this.bio,
     required this.totalRuns,
     required this.postCount,
+    this.actionLabel,
+    this.isSubmitting = false,
+    this.onFriendAction,
   });
 
   final FriendModel friend;
   final String bio;
   final int totalRuns;
   final int postCount;
+  final String? actionLabel;
+  final bool isSubmitting;
+  final VoidCallback? onFriendAction;
 
   @override
   Widget build(BuildContext context) {
@@ -247,14 +324,15 @@ class _FriendHeroCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: _OutlineActionButton(
-                        icon: Icons.person_remove_alt_1_outlined,
-                        label: 'Remove Friend',
-                        onTap: () {},
+                    if (actionLabel != null)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _OutlineActionButton(
+                          icon: _iconForAction(actionLabel!),
+                          label: isSubmitting ? 'Please wait...' : actionLabel!,
+                          onTap: isSubmitting ? null : onFriendAction,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -294,6 +372,17 @@ class _FriendHeroCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  IconData _iconForAction(String label) {
+    switch (label) {
+      case 'Add Friend':
+        return Icons.person_add_alt_1_outlined;
+      case 'Cancel Request':
+        return Icons.person_off_outlined;
+      default:
+        return Icons.person_remove_alt_1_outlined;
+    }
   }
 }
 
@@ -380,7 +469,7 @@ class _OutlineActionButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: Color(0xFF4B9E2C)),
+              Icon(icon, size: 14, color: const Color(0xFF4B9E2C)),
               const SizedBox(width: 5),
               Text(
                 label,

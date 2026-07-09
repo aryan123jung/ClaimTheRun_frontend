@@ -22,6 +22,7 @@ class AddFriendUserCard extends StatelessWidget {
     required this.user,
     required this.primaryLabel,
     required this.onPrimaryTap,
+    this.onTap,
     this.secondaryLabel,
     this.onSecondaryTap,
   });
@@ -29,6 +30,7 @@ class AddFriendUserCard extends StatelessWidget {
   final AddFriendUserModel user;
   final String primaryLabel;
   final VoidCallback onPrimaryTap;
+  final VoidCallback? onTap;
   final String? secondaryLabel;
   final VoidCallback? onSecondaryTap;
 
@@ -36,89 +38,96 @@ class AddFriendUserCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111C26) : Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? const Color(0xFF233241) : const Color(0xFFE7E7E3),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundImage: NetworkImage(user.avatarUrl),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF181818),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  user.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDark
-                        ? const Color(0xFF9BA8B4)
-                        : const Color(0xFF6F6F6F),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${user.mutualFriends} mutual friends',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? const Color(0xFF8FA0AE)
-                        : const Color(0xFF8F8F8F),
-                  ),
-                ),
-              ],
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF111C26) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFE7E7E3),
             ),
-          ),
-          const SizedBox(width: 10),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ActionButton(
-                label: primaryLabel,
-                onTap: onPrimaryTap,
-                isPrimary: true,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
-              if (secondaryLabel != null && onSecondaryTap != null) ...[
-                const SizedBox(height: 8),
-                _ActionButton(
-                  label: secondaryLabel!,
-                  onTap: onSecondaryTap!,
-                  isPrimary: false,
-                ),
-              ],
             ],
           ),
-        ],
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundImage: NetworkImage(user.avatarUrl),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF181818),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      user.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark
+                            ? const Color(0xFF9BA8B4)
+                            : const Color(0xFF6F6F6F),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${user.mutualFriends} mutual friends',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? const Color(0xFF8FA0AE)
+                            : const Color(0xFF8F8F8F),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ActionButton(
+                    label: primaryLabel,
+                    onTap: onPrimaryTap,
+                    isPrimary: true,
+                  ),
+                  if (secondaryLabel != null && onSecondaryTap != null) ...[
+                    const SizedBox(height: 8),
+                    _ActionButton(
+                      label: secondaryLabel!,
+                      onTap: onSecondaryTap!,
+                      isPrimary: false,
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
