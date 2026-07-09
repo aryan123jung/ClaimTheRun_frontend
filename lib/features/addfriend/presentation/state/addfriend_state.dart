@@ -6,6 +6,7 @@ enum AddFriendStatus { initial, loading, loaded, action, error }
 class AddFriendState {
   const AddFriendState({
     required this.status,
+    required this.friends,
     required this.searchResults,
     required this.incomingRequests,
     required this.searchText,
@@ -14,12 +15,14 @@ class AddFriendState {
 
   const AddFriendState.initial()
     : status = AddFriendStatus.initial,
+      friends = const [],
       searchResults = const [],
       incomingRequests = const [],
       searchText = '',
       errorMessage = null;
 
   final AddFriendStatus status;
+  final List<FriendUserEntity> friends;
   final List<FriendUserEntity> searchResults;
   final List<FriendRequestEntity> incomingRequests;
   final String searchText;
@@ -27,6 +30,7 @@ class AddFriendState {
 
   AddFriendState copyWith({
     AddFriendStatus? status,
+    List<FriendUserEntity>? friends,
     List<FriendUserEntity>? searchResults,
     List<FriendRequestEntity>? incomingRequests,
     String? searchText,
@@ -35,6 +39,7 @@ class AddFriendState {
   }) {
     return AddFriendState(
       status: status ?? this.status,
+      friends: friends ?? this.friends,
       searchResults: searchResults ?? this.searchResults,
       incomingRequests: incomingRequests ?? this.incomingRequests,
       searchText: searchText ?? this.searchText,

@@ -52,6 +52,24 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
     );
   }
 
+  Future<void> loadFriends() async {
+    state = state.copyWith(status: AddFriendStatus.loading, clearError: true);
+    final result = await _searchUsersUsecase(
+      const SearchUsersParams(search: ''),
+    );
+    result.fold(
+      (failure) => state = state.copyWith(
+        status: AddFriendStatus.error,
+        errorMessage: failure.message,
+      ),
+      (users) => state = state.copyWith(
+        status: AddFriendStatus.loaded,
+        friends: users.where((user) => user.friendStatus == 'FRIEND').toList(),
+        clearError: true,
+      ),
+    );
+  }
+
   Future<void> loadIncomingRequests() async {
     state = state.copyWith(status: AddFriendStatus.loading, clearError: true);
     final result = await _getIncomingRequestsUsecase();
@@ -82,11 +100,11 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
         return failure.message;
       },
       (_) {
+        final updatedUser = user.copyWith(friendStatus: 'PENDING_OUTGOING');
         state = state.copyWith(
           status: AddFriendStatus.loaded,
-          searchResults: _replaceUser(
-            user.copyWith(friendStatus: 'PENDING_OUTGOING'),
-          ),
+          searchResults: _replaceUser(updatedUser),
+          friends: _replaceFriend(updatedUser),
         );
         return null;
       },
@@ -107,9 +125,11 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
         return failure.message;
       },
       (_) {
+        final updatedUser = user.copyWith(friendStatus: 'NONE');
         state = state.copyWith(
           status: AddFriendStatus.loaded,
-          searchResults: _replaceUser(user.copyWith(friendStatus: 'NONE')),
+          searchResults: _replaceUser(updatedUser),
+          friends: _replaceFriend(updatedUser),
         );
         return null;
       },
@@ -130,8 +150,15 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
         return failure.message;
       },
       (_) {
+        final updatedFriends = [
+          ...state.friends.where((item) => item.id != request.userId),
+          ...state.searchResults
+              .where((item) => item.id == request.userId)
+              .map((item) => item.copyWith(friendStatus: 'FRIEND')),
+        ];
         state = state.copyWith(
           status: AddFriendStatus.loaded,
+          friends: updatedFriends,
           incomingRequests: state.incomingRequests
               .where((e) => e.id != request.id)
               .toList(),
@@ -180,9 +207,11 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
         return failure.message;
       },
       (_) {
+        final updatedUser = user.copyWith(friendStatus: 'NONE');
         state = state.copyWith(
           status: AddFriendStatus.loaded,
-          searchResults: _replaceUser(user.copyWith(friendStatus: 'NONE')),
+          searchResults: _replaceUser(updatedUser),
+          friends: state.friends.where((item) => item.id != user.id).toList(),
         );
         return null;
       },
@@ -200,6 +229,22 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
     return [
       for (final item in state.searchResults)
         if (item.id == userId) item.copyWith(friendStatus: status) else item,
+    ];
+  }
+
+  List<FriendUserEntity> _replaceFriend(FriendUserEntity updated) {
+    if (updated.friendStatus != 'FRIEND') {
+      return state.friends.where((item) => item.id != updated.id).toList();
+    }
+
+    final exists = state.friends.any((item) => item.id == updated.id);
+    if (!exists) {
+      return [...state.friends, updated];
+    }
+
+    return [
+      for (final item in state.friends)
+        if (item.id == updated.id) updated else item,
     ];
   }
 }

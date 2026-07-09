@@ -1,6 +1,9 @@
 import 'package:clain_the_run/core/api/api_endpoints.dart';
+import 'package:clain_the_run/features/addfriend/domain/entities/friend_user_entity.dart';
 import 'package:clain_the_run/features/addfriend/presentation/pages/addfriendscreen.dart';
 import 'package:clain_the_run/features/addfriend/presentation/pages/friend_requests_screen.dart';
+import 'package:clain_the_run/features/addfriend/presentation/state/addfriend_state.dart';
+import 'package:clain_the_run/features/addfriend/presentation/view_model/addfriend_view_model.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
@@ -30,39 +33,6 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
   static const _activeTextGreen = Color(0xFF3B6D11);
 
   late final TabController _tabController;
-
-  final List<FriendModel> _friends = const [
-    FriendModel(
-      name: 'Ram Khadka',
-      avatarUrl: 'https://i.pravatar.cc/150?img=12',
-      totalKm: 500,
-      territories: 12,
-    ),
-    FriendModel(
-      name: 'Aarav Sharma',
-      avatarUrl: 'https://i.pravatar.cc/150?img=13',
-      totalKm: 102,
-      territories: 8,
-    ),
-    FriendModel(
-      name: 'Riya Thapa',
-      avatarUrl: 'https://i.pravatar.cc/150?img=26',
-      totalKm: 600,
-      territories: 2,
-    ),
-    FriendModel(
-      name: 'Kiran Gurung',
-      avatarUrl: 'https://i.pravatar.cc/150?img=14',
-      totalKm: 99,
-      territories: 8,
-    ),
-    FriendModel(
-      name: 'Anjali Rai',
-      avatarUrl: 'https://i.pravatar.cc/150?img=27',
-      totalKm: 1102,
-      territories: 1,
-    ),
-  ];
 
   final List<GroupModel> _groups = const [
     GroupModel(
@@ -104,6 +74,9 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
     Future.microtask(
       () => ref.read(socialViewModelProvider.notifier).loadPosts(),
     );
+    Future.microtask(
+      () => ref.read(addFriendViewModelProvider.notifier).loadFriends(),
+    );
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) setState(() {});
     });
@@ -121,6 +94,7 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
     final currentUserId = ref.watch(
       authViewModelProvider.select((state) => state.authEntity?.id),
     );
+    final friendState = ref.watch(addFriendViewModelProvider);
     final posts = socialState.posts
         .where((post) => post.author.id != currentUserId)
         .map(_mapPostEntityToViewModel)
@@ -266,7 +240,18 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                           .toggleLike(postId);
                     },
                   ),
-                  _FriendsTab(friends: _friends),
+                  _FriendsTab(
+                    friends: friendState.friends,
+                    isLoading:
+                        friendState.status == AddFriendStatus.loading &&
+                        friendState.friends.isEmpty,
+                    errorMessage: friendState.errorMessage,
+                    onRetry: () {
+                      ref
+                          .read(addFriendViewModelProvider.notifier)
+                          .loadFriends();
+                    },
+                  ),
                   _GroupsTab(groups: _groups),
                 ],
               ),
@@ -333,15 +318,23 @@ class _FeedTab extends StatelessWidget {
 }
 
 class _FriendsTab extends StatelessWidget {
-  const _FriendsTab({required this.friends});
+  const _FriendsTab({
+    required this.friends,
+    this.isLoading = false,
+    this.errorMessage,
+    this.onRetry,
+  });
 
-  final List<FriendModel> friends;
+  final List<FriendUserEntity> friends;
+  final bool isLoading;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
-        await Future<void>.delayed(const Duration(milliseconds: 500));
+        onRetry?.call();
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -389,129 +382,59 @@ class _FriendsTab extends StatelessWidget {
               ],
             ),
           ),
-          for (final friend in friends) ...[
-            FriendCard(
-              friend: friend,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => FriendProfileScreen(
-                      friend: friend,
-                      bio: _friendBio(friend.name),
-                      totalRuns: _friendRuns(friend.name),
-                      postCount: _friendPosts(friend.name).length,
-                      posts: _friendPosts(friend.name),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (errorMessage != null && friends.isEmpty)
+            _FeedMessageCard(
+              message: errorMessage!,
+              actionLabel: 'Retry',
+              onTap: onRetry,
+            )
+          else if (friends.isEmpty)
+            const _FeedMessageCard(
+              message:
+                  'No friends added yet. Search and add runners to see them here.',
+            )
+          else
+            for (final friend in friends) ...[
+              FriendCard(
+                friend: _mapFriendUserToCard(friend),
+                onTap: () {
+                  final cardFriend = _mapFriendUserToCard(friend);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => FriendProfileScreen(
+                        friend: cardFriend,
+                        bio: '@${friend.username}',
+                        totalRuns: 0,
+                        postCount: 0,
+                        posts: const <PostModel>[],
+                        friendActionLabel: 'Remove Friend',
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-            if (friend != friends.last) const SizedBox(height: 10),
-          ],
+                  );
+                },
+              ),
+              if (friend != friends.last) const SizedBox(height: 10),
+            ],
         ],
       ),
     );
   }
 }
 
-String _friendBio(String friendName) {
-  switch (friendName) {
-    case 'Ram Khadka':
-      return 'Just chilllll guysss';
-    case 'Aarav Sharma':
-      return 'Always down for an early morning run.';
-    case 'Riya Thapa':
-      return 'Coffee, cardio, and chasing better pace.';
-    case 'Kiran Gurung':
-      return 'Territory hunter and weekend long-run specialist.';
-    case 'Anjali Rai':
-      return 'Running helps me reset and refocus.';
-    default:
-      return 'Runner. Explorer. Teammate.';
-  }
-}
-
-int _friendRuns(String friendName) {
-  switch (friendName) {
-    case 'Ram Khadka':
-      return 20;
-    case 'Aarav Sharma':
-      return 16;
-    case 'Riya Thapa':
-      return 24;
-    case 'Kiran Gurung':
-      return 18;
-    case 'Anjali Rai':
-      return 29;
-    default:
-      return 12;
-  }
-}
-
-List<PostModel> _friendPosts(String friendName) {
-  switch (friendName) {
-    case 'Ram Khadka':
-      return const [
-        PostModel(
-          id: 'friend-ram-1',
-          authorName: 'Ram Khadka',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
-          timestamp: 'Today, 7:15 AM',
-          caption: "How's the view???",
-          imageUrl:
-              'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800',
-          likeCount: 23,
-          commentCount: 23,
-        ),
-        PostModel(
-          id: 'friend-ram-2',
-          authorName: 'Ram Khadka',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
-          timestamp: 'Today, 7:15 AM',
-          caption: 'Recovery jog done. Feeling fresh for tomorrow.',
-          likeCount: 11,
-          commentCount: 6,
-        ),
-      ];
-    case 'Aarav Sharma':
-      return const [
-        PostModel(
-          id: 'friend-aarav-1',
-          authorName: 'Aarav Sharma',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=13',
-          timestamp: 'Today, 6:45 AM',
-          caption: 'Quick speed session before class.',
-          likeCount: 9,
-          commentCount: 4,
-        ),
-      ];
-    case 'Riya Thapa':
-      return const [
-        PostModel(
-          id: 'friend-riya-1',
-          authorName: 'Riya Thapa',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=26',
-          timestamp: 'Yesterday, 7:20 AM',
-          caption: 'Morning run around the lake',
-          imageUrl:
-              'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
-          likeCount: 14,
-          commentCount: 6,
-        ),
-      ];
-    default:
-      return const [
-        PostModel(
-          id: 'friend-default-1',
-          authorName: 'Friend Post',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=30',
-          timestamp: 'Today',
-          caption: 'Another good day to run.',
-          likeCount: 4,
-          commentCount: 1,
-        ),
-      ];
-  }
+FriendModel _mapFriendUserToCard(FriendUserEntity friend) {
+  return FriendModel(
+    name: friend.fullname,
+    avatarUrl: (friend.profileUrl != null && friend.profileUrl!.isNotEmpty)
+        ? ApiEndpoints.profileImageUrl(friend.profileUrl!)
+        : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(friend.fullname)}&background=E6F3DC&color=3B6D11',
+    totalKm: 0,
+    territories: friend.mutualFriends,
+  );
 }
 
 class _GroupsTab extends StatelessWidget {
