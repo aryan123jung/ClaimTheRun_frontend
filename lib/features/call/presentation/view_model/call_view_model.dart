@@ -26,8 +26,11 @@ class CallViewModel extends Notifier<CallState> {
   late final CallSocketService _socketService;
   final _uuid = const Uuid();
   final AudioPlayer _ringtonePlayer = AudioPlayer();
+  final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
+  final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
+  MediaStream? _remoteStream;
   bool _listenersBound = false;
   Map<String, dynamic>? _pendingOffer;
   final List<Map<String, dynamic>> _pendingCandidates = [];
@@ -36,14 +39,23 @@ class CallViewModel extends Notifier<CallState> {
   CallState build() {
     _socketService = ref.read(callSocketServiceProvider);
     _bindSocketListeners();
-    Future<void>.microtask(_socketService.connect);
+    Future<void>.microtask(() async {
+      await _localRenderer.initialize();
+      await _remoteRenderer.initialize();
+      await _socketService.connect();
+    });
     ref.onDispose(() async {
       await _stopRingtone();
       await _disposeCallResources();
+      await _localRenderer.dispose();
+      await _remoteRenderer.dispose();
       await _ringtonePlayer.dispose();
     });
     return const CallState();
   }
+
+  RTCVideoRenderer get localRenderer => _localRenderer;
+  RTCVideoRenderer get remoteRenderer => _remoteRenderer;
 
   Future<void> ensureReady() async {
     final selfId = ref.read(authViewModelProvider).authEntity?.id;
@@ -58,6 +70,33 @@ class CallViewModel extends Notifier<CallState> {
     required String friendName,
     required String avatarUrl,
   }) async {
+    return _startCall(
+      friendId: friendId,
+      friendName: friendName,
+      avatarUrl: avatarUrl,
+      isVideo: false,
+    );
+  }
+
+  Future<bool> startVideoCall({
+    required String friendId,
+    required String friendName,
+    required String avatarUrl,
+  }) async {
+    return _startCall(
+      friendId: friendId,
+      friendName: friendName,
+      avatarUrl: avatarUrl,
+      isVideo: true,
+    );
+  }
+
+  Future<bool> _startCall({
+    required String friendId,
+    required String friendName,
+    required String avatarUrl,
+    required bool isVideo,
+  }) async {
     try {
       await ensureReady();
 
@@ -70,11 +109,13 @@ class CallViewModel extends Notifier<CallState> {
         return false;
       }
 
-      final hasPermission = await _requestMicrophonePermission();
+      final hasPermission = await _requestPermissions(isVideo: isVideo);
       if (!hasPermission) {
         state = state.copyWith(
           status: CallStatus.error,
-          errorMessage: 'Microphone permission is required for audio calls.',
+          errorMessage: isVideo
+              ? 'Microphone and camera permissions are required for video calls.'
+              : 'Microphone permission is required for audio calls.',
         );
         return false;
       }
@@ -96,14 +137,14 @@ class CallViewModel extends Notifier<CallState> {
           name: friendName,
           avatarUrl: avatarUrl,
         ),
-        isVideo: false,
+        isVideo: isVideo,
       );
       await _playOutgoingRingtone();
 
       await _createPeerConnection(isCaller: true);
       final offer = await _peerConnection!.createOffer({
         'offerToReceiveAudio': true,
-        'offerToReceiveVideo': false,
+        'offerToReceiveVideo': isVideo,
       });
       await _peerConnection!.setLocalDescription(offer);
 
@@ -113,7 +154,7 @@ class CallViewModel extends Notifier<CallState> {
         'callerName': callerName,
         'callerAvatarUrl': callerAvatarUrl,
         'receiverId': friendId,
-        'isVideo': false,
+        'isVideo': isVideo,
         'createdAt': DateTime.now().toIso8601String(),
       });
 
@@ -130,7 +171,8 @@ class CallViewModel extends Notifier<CallState> {
       state = CallState(
         status: CallStatus.error,
         selfId: state.selfId,
-        errorMessage: 'Could not start the audio call. ${error.toString()}',
+        errorMessage:
+            'Could not start the ${isVideo ? 'video' : 'audio'} call. ${error.toString()}',
       );
       return false;
     }
@@ -142,11 +184,13 @@ class CallViewModel extends Notifier<CallState> {
     final selfId = state.selfId;
     if (participant == null || callId == null || selfId == null) return;
 
-    final hasPermission = await _requestMicrophonePermission();
+    final hasPermission = await _requestPermissions(isVideo: state.isVideo);
     if (!hasPermission) {
       state = state.copyWith(
         status: CallStatus.error,
-        errorMessage: 'Microphone permission is required for audio calls.',
+        errorMessage: state.isVideo
+            ? 'Microphone and camera permissions are required for video calls.'
+            : 'Microphone permission is required for audio calls.',
       );
       return;
     }
@@ -154,6 +198,7 @@ class CallViewModel extends Notifier<CallState> {
     await _createPeerConnection(isCaller: false);
     state = state.copyWith(status: CallStatus.connecting, clearError: true);
     await _stopRingtone();
+    await _updateSpeakerRoute(enabled: state.isVideo);
 
     await _applyPendingOffer();
     await _flushPendingCandidates();
@@ -185,6 +230,16 @@ class CallViewModel extends Notifier<CallState> {
       track.enabled = !enabled;
     }
     state = state.copyWith(isMuted: enabled);
+  }
+
+  Future<void> toggleCamera() async {
+    if (!state.isVideo) return;
+    final enabled = !state.isCameraEnabled;
+    final videoTracks = _localStream?.getVideoTracks() ?? const [];
+    for (final track in videoTracks) {
+      track.enabled = enabled;
+    }
+    state = state.copyWith(isCameraEnabled: enabled);
   }
 
   void _bindSocketListeners() {
@@ -279,13 +334,31 @@ class CallViewModel extends Notifier<CallState> {
 
     _localStream = await navigator.mediaDevices.getUserMedia({
       'audio': true,
-      'video': false,
+      'video': state.isVideo
+          ? {
+              'facingMode': 'user',
+              'width': 1280,
+              'height': 720,
+              'frameRate': 30,
+            }
+          : false,
     });
+    _localRenderer.srcObject = _localStream;
 
     final connection = await createPeerConnection(_iceServers);
     for (final track in _localStream!.getTracks()) {
       await connection.addTrack(track, _localStream!);
     }
+
+    connection.onAddStream = (stream) {
+      _attachRemoteStream(stream);
+    };
+
+    connection.onTrack = (event) {
+      if (event.streams.isNotEmpty) {
+        _attachRemoteStream(event.streams.first);
+      }
+    };
 
     connection.onIceCandidate = (candidate) {
       final callId = state.callId;
@@ -327,14 +400,19 @@ class CallViewModel extends Notifier<CallState> {
     };
 
     _peerConnection = connection;
+    await _updateSpeakerRoute(enabled: state.isVideo);
     if (isCaller) {
       state = state.copyWith(status: CallStatus.outgoing, clearError: true);
     }
+    state = state.copyWith(videoRevision: state.videoRevision + 1);
   }
 
-  Future<bool> _requestMicrophonePermission() async {
-    final status = await Permission.microphone.request();
-    return status.isGranted;
+  Future<bool> _requestPermissions({required bool isVideo}) async {
+    final microphoneStatus = await Permission.microphone.request();
+    if (!microphoneStatus.isGranted) return false;
+    if (!isVideo) return true;
+    final cameraStatus = await Permission.camera.request();
+    return cameraStatus.isGranted;
   }
 
   Future<void> _endLocally({CallStatus status = CallStatus.ended}) async {
@@ -347,6 +425,8 @@ class CallViewModel extends Notifier<CallState> {
       selfId: previousState.selfId,
       participant: previousState.participant,
       isVideo: previousState.isVideo,
+      isCameraEnabled: previousState.isCameraEnabled,
+      videoRevision: previousState.videoRevision + 1,
       errorMessage: status == CallStatus.error
           ? previousState.errorMessage
           : null,
@@ -356,12 +436,21 @@ class CallViewModel extends Notifier<CallState> {
   Future<void> _disposeCallResources() async {
     _pendingOffer = null;
     _pendingCandidates.clear();
+    await _updateSpeakerRoute(enabled: false);
+    _localRenderer.srcObject = null;
+    _remoteRenderer.srcObject = null;
     final stream = _localStream;
+    final remoteStream = _remoteStream;
     _localStream = null;
+    _remoteStream = null;
     for (final track in stream?.getTracks() ?? const []) {
       track.stop();
     }
+    for (final track in remoteStream?.getTracks() ?? const []) {
+      track.stop();
+    }
     await stream?.dispose();
+    await remoteStream?.dispose();
     await _peerConnection?.close();
     _peerConnection = null;
   }
@@ -397,7 +486,7 @@ class CallViewModel extends Notifier<CallState> {
     );
     final answer = await peerConnection.createAnswer({
       'offerToReceiveAudio': true,
-      'offerToReceiveVideo': false,
+      'offerToReceiveVideo': state.isVideo,
     });
     await peerConnection.setLocalDescription(answer);
 
@@ -435,5 +524,17 @@ class CallViewModel extends Notifier<CallState> {
         signal['sdpMLineIndex'] as int?,
       ),
     );
+  }
+
+  void _attachRemoteStream(MediaStream stream) {
+    _remoteStream = stream;
+    _remoteRenderer.srcObject = stream;
+    state = state.copyWith(videoRevision: state.videoRevision + 1);
+  }
+
+  Future<void> _updateSpeakerRoute({required bool enabled}) async {
+    try {
+      await Helper.setSpeakerphoneOn(enabled);
+    } catch (_) {}
   }
 }

@@ -4,6 +4,7 @@ import 'package:clain_the_run/features/call/presentation/state/call_state.dart';
 import 'package:clain_the_run/features/call/presentation/view_model/call_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 class CallSessionScreen extends ConsumerStatefulWidget {
   const CallSessionScreen({super.key});
@@ -92,6 +93,129 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
                     ),
                   ],
                 ),
+              )
+            : state.isVideo
+            ? Stack(
+                children: [
+                  Positioned.fill(
+                    child: _buildRemoteVideo(
+                      participant: participant,
+                      renderer: notifier.remoteRenderer,
+                    ),
+                  ),
+                  Positioned(
+                    top: 24,
+                    left: 20,
+                    right: 20,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                participant.name,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _statusLabel(state.status),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: Color(0xFFE5E7EB),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (state.errorMessage != null)
+                    Positioned(
+                      top: 92,
+                      left: 20,
+                      right: 20,
+                      child: Text(
+                        state.errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.redAccent),
+                      ),
+                    ),
+                  Positioned(
+                    top: 24,
+                    right: 20,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: SizedBox(
+                        width: 116,
+                        height: 164,
+                        child: _buildLocalVideo(
+                          participant: participant,
+                          renderer: notifier.localRenderer,
+                          cameraEnabled: state.isCameraEnabled,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 34,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _CallActionButton(
+                          icon: state.isMuted ? Icons.mic_off : Icons.mic,
+                          backgroundColor: const Color(0xCCFFFFFF),
+                          iconColor: const Color(0xFF111111),
+                          onTap: state.status == CallStatus.connected
+                              ? notifier.toggleMute
+                              : null,
+                        ),
+                        const SizedBox(width: 18),
+                        _CallActionButton(
+                          icon: state.isCameraEnabled
+                              ? Icons.videocam
+                              : Icons.videocam_off,
+                          backgroundColor: const Color(0xCCFFFFFF),
+                          iconColor: const Color(0xFF111111),
+                          onTap:
+                              state.status == CallStatus.connected ||
+                                  state.status == CallStatus.connecting
+                              ? notifier.toggleCamera
+                              : null,
+                        ),
+                        const SizedBox(width: 18),
+                        if (state.status == CallStatus.incoming) ...[
+                          _CallActionButton(
+                            icon: Icons.call_end,
+                            backgroundColor: const Color(0xFFFFE3E3),
+                            iconColor: const Color(0xFFD64545),
+                            onTap: notifier.declineIncomingCall,
+                          ),
+                          const SizedBox(width: 18),
+                          _CallActionButton(
+                            icon: Icons.call,
+                            backgroundColor: const Color(0xFFEAF5DF),
+                            iconColor: const Color(0xFF72B63E),
+                            onTap: notifier.acceptIncomingCall,
+                          ),
+                        ] else
+                          _CallActionButton(
+                            icon: Icons.call_end,
+                            backgroundColor: const Color(0xFFFFE3E3),
+                            iconColor: const Color(0xFFD64545),
+                            onTap: notifier.endCurrentCall,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               )
             : Padding(
                 padding: const EdgeInsets.fromLTRB(24, 32, 24, 36),
@@ -188,13 +312,13 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
   String _statusLabel(CallStatus status) {
     switch (status) {
       case CallStatus.incoming:
-        return 'Incoming voice call...';
+        return 'Incoming ${ref.read(callViewModelProvider).isVideo ? 'video' : 'voice'} call...';
       case CallStatus.outgoing:
         return 'Calling...';
       case CallStatus.connecting:
         return 'Connecting...';
       case CallStatus.connected:
-        return 'Voice call in progress';
+        return '${ref.read(callViewModelProvider).isVideo ? 'Video' : 'Voice'} call in progress';
       case CallStatus.declined:
         return 'Call declined';
       case CallStatus.ended:
@@ -204,6 +328,66 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
       case CallStatus.idle:
         return 'Ready';
     }
+  }
+
+  Widget _buildRemoteVideo({
+    required CallParticipant participant,
+    required RTCVideoRenderer renderer,
+  }) {
+    if (renderer.srcObject != null) {
+      return RTCVideoView(
+        key: ValueKey(
+          'remote-${ref.watch(callViewModelProvider).videoRevision}',
+        ),
+        renderer,
+        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+        mirror: false,
+      );
+    }
+
+    return Container(
+      color: const Color(0xFF101820),
+      child: Center(
+        child: CircleAvatar(
+          radius: 58,
+          backgroundImage: participant.avatarUrl.isNotEmpty
+              ? NetworkImage(participant.avatarUrl)
+              : null,
+          child: participant.avatarUrl.isEmpty
+              ? Text(
+                  participant.name.isNotEmpty
+                      ? participant.name[0].toUpperCase()
+                      : '?',
+                  style: const TextStyle(fontSize: 28),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocalVideo({
+    required CallParticipant participant,
+    required RTCVideoRenderer renderer,
+    required bool cameraEnabled,
+  }) {
+    if (renderer.srcObject != null && cameraEnabled) {
+      return RTCVideoView(
+        key: ValueKey(
+          'local-${ref.watch(callViewModelProvider).videoRevision}',
+        ),
+        renderer,
+        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+        mirror: true,
+      );
+    }
+
+    return Container(
+      color: const Color(0xFF1F2937),
+      child: const Center(
+        child: Icon(Icons.videocam_off, color: Colors.white, size: 30),
+      ),
+    );
   }
 }
 

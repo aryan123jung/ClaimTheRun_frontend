@@ -29,6 +29,8 @@ class CallState {
     this.participant,
     this.isVideo = false,
     this.isMuted = false,
+    this.isCameraEnabled = true,
+    this.videoRevision = 0,
     this.errorMessage,
   });
 
@@ -38,6 +40,8 @@ class CallState {
   final CallParticipant? participant;
   final bool isVideo;
   final bool isMuted;
+  final bool isCameraEnabled;
+  final int videoRevision;
   final String? errorMessage;
 
   bool get hasActiveCall =>
@@ -53,6 +57,8 @@ class CallState {
     CallParticipant? participant,
     bool? isVideo,
     bool? isMuted,
+    bool? isCameraEnabled,
+    int? videoRevision,
     String? errorMessage,
     bool clearCallId = false,
     bool clearParticipant = false,
@@ -65,6 +71,8 @@ class CallState {
       participant: clearParticipant ? null : (participant ?? this.participant),
       isVideo: isVideo ?? this.isVideo,
       isMuted: isMuted ?? this.isMuted,
+      isCameraEnabled: isCameraEnabled ?? this.isCameraEnabled,
+      videoRevision: videoRevision ?? this.videoRevision,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
