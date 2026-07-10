@@ -3,6 +3,7 @@ import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
 import 'package:clain_the_run/features/social/domain/usecases/create_group_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/create_post_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/get_group_posts_usecase.dart';
+import 'package:clain_the_run/features/social/domain/usecases/get_groups_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/get_my_groups_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/get_my_posts_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/get_posts_usecase.dart';
@@ -19,6 +20,7 @@ final socialViewModelProvider = NotifierProvider<SocialViewModel, SocialState>(
 class SocialViewModel extends Notifier<SocialState> {
   late final GetPostsUsecase _getPostsUsecase;
   late final GetMyPostsUsecase _getMyPostsUsecase;
+  late final GetGroupsUsecase _getGroupsUsecase;
   late final GetMyGroupsUsecase _getMyGroupsUsecase;
   late final GetGroupPostsUsecase _getGroupPostsUsecase;
   late final CreateGroupUsecase _createGroupUsecase;
@@ -31,6 +33,7 @@ class SocialViewModel extends Notifier<SocialState> {
   SocialState build() {
     _getPostsUsecase = ref.read(getPostsUsecaseProvider);
     _getMyPostsUsecase = ref.read(getMyPostsUsecaseProvider);
+    _getGroupsUsecase = ref.read(getGroupsUsecaseProvider);
     _getMyGroupsUsecase = ref.read(getMyGroupsUsecaseProvider);
     _getGroupPostsUsecase = ref.read(getGroupPostsUsecaseProvider);
     _createGroupUsecase = ref.read(createGroupUsecaseProvider);
@@ -172,6 +175,33 @@ class SocialViewModel extends Notifier<SocialState> {
           clearError: true,
         );
       },
+    );
+  }
+
+  Future<void> searchGroups({String? search}) async {
+    final query = (search ?? '').trim();
+    state = state.copyWith(
+      status: query.isEmpty ? state.status : SocialStatus.loading,
+      discoverableGroupSearchQuery: query,
+      discoverableGroups: query.isEmpty ? const [] : state.discoverableGroups,
+      clearError: true,
+    );
+
+    if (query.isEmpty) {
+      return;
+    }
+
+    final result = await _getGroupsUsecase(search: query);
+    result.fold(
+      (failure) => state = state.copyWith(
+        status: SocialStatus.error,
+        errorMessage: failure.message,
+      ),
+      (groups) => state = state.copyWith(
+        status: SocialStatus.loaded,
+        discoverableGroups: groups,
+        clearError: true,
+      ),
     );
   }
 

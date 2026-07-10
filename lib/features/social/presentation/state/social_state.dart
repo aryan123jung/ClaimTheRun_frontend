@@ -9,26 +9,32 @@ class SocialState {
     required this.posts,
     required this.myPosts,
     required this.groups,
+    required this.discoverableGroups,
     required this.groupPostsById,
     required this.groupSearchQuery,
+    required this.discoverableGroupSearchQuery,
     this.errorMessage,
   });
 
   const SocialState.initial()
-      : status = SocialStatus.initial,
-        posts = const [],
-        myPosts = const [],
-        groups = const [],
-        groupPostsById = const {},
-        groupSearchQuery = '',
-        errorMessage = null;
+    : status = SocialStatus.initial,
+      posts = const [],
+      myPosts = const [],
+      groups = const [],
+      discoverableGroups = const [],
+      groupPostsById = const {},
+      groupSearchQuery = '',
+      discoverableGroupSearchQuery = '',
+      errorMessage = null;
 
   final SocialStatus status;
   final List<PostEntity> posts;
   final List<PostEntity> myPosts;
   final List<GroupEntity> groups;
+  final List<GroupEntity> discoverableGroups;
   final Map<String, List<PostEntity>> groupPostsById;
   final String groupSearchQuery;
+  final String discoverableGroupSearchQuery;
   final String? errorMessage;
 
   bool get isBusy =>
@@ -39,8 +45,10 @@ class SocialState {
     List<PostEntity>? posts,
     List<PostEntity>? myPosts,
     List<GroupEntity>? groups,
+    List<GroupEntity>? discoverableGroups,
     Map<String, List<PostEntity>>? groupPostsById,
     String? groupSearchQuery,
+    String? discoverableGroupSearchQuery,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -49,8 +57,11 @@ class SocialState {
       posts: posts ?? this.posts,
       myPosts: myPosts ?? this.myPosts,
       groups: groups ?? this.groups,
+      discoverableGroups: discoverableGroups ?? this.discoverableGroups,
       groupPostsById: groupPostsById ?? this.groupPostsById,
       groupSearchQuery: groupSearchQuery ?? this.groupSearchQuery,
+      discoverableGroupSearchQuery:
+          discoverableGroupSearchQuery ?? this.discoverableGroupSearchQuery,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }

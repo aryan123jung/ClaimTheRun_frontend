@@ -12,6 +12,7 @@ import 'package:clain_the_run/features/message/presentation/pages/messagescreen.
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
+import 'package:clain_the_run/features/social/presentation/pages/group_search_screen.dart';
 import 'package:clain_the_run/features/social/presentation/state/social_state.dart';
 import 'package:clain_the_run/features/social/presentation/view_model/social_view_model.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/create_group_popup.dart';
@@ -76,6 +77,35 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      floatingActionButton: _tabController.index == 2
+          ? FloatingActionButton(
+              onPressed: () => showCreateGroupPopup(
+                context,
+                onSubmit: (name, description, imagePath) async {
+                  final success = await ref
+                      .read(socialViewModelProvider.notifier)
+                      .createGroup(
+                        name: name,
+                        description: description,
+                        imagePath: imagePath,
+                      );
+                  if (success) return null;
+                  return ref.read(socialViewModelProvider).errorMessage ??
+                      'Unable to create group';
+                },
+                onSuccess: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Group created successfully.'),
+                    ),
+                  );
+                },
+              ),
+              backgroundColor: _brandGreen,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add_rounded, size: 28),
+            )
+          : null,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -139,32 +169,15 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                   ] else if (_tabController.index == 2) ...[
                     const SizedBox(width: 8),
                     _OutlinedActionButton(
-                      icon: Icons.group_add_rounded,
-                      label: 'Create Group',
-                      onTap: () => showCreateGroupPopup(
-                        context,
-                        onSubmit: (name, description, imagePath) async {
-                          final success = await ref
-                              .read(socialViewModelProvider.notifier)
-                              .createGroup(
-                                name: name,
-                                description: description,
-                                imagePath: imagePath,
-                              );
-                          if (success) return null;
-                          return ref
-                                  .read(socialViewModelProvider)
-                                  .errorMessage ??
-                              'Unable to create group';
-                        },
-                        onSuccess: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Group created successfully.'),
-                            ),
-                          );
-                        },
-                      ),
+                      icon: Icons.search_rounded,
+                      label: 'Search Groups',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const GroupSearchScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ],
@@ -267,11 +280,6 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                       ref
                           .read(socialViewModelProvider.notifier)
                           .loadGroups(force: true);
-                    },
-                    onSearch: (query) {
-                      ref
-                          .read(socialViewModelProvider.notifier)
-                          .loadGroups(search: query, force: true);
                     },
                   ),
                 ],
@@ -480,23 +488,17 @@ class _GroupsTab extends StatelessWidget {
     this.isLoading = false,
     this.errorMessage,
     this.onRetry,
-    this.onSearch,
   });
 
   final List<GroupEntity> groups;
   final bool isLoading;
   final String? errorMessage;
   final VoidCallback? onRetry;
-  final ValueChanged<String>? onSearch;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-          child: _SearchField(hint: 'Search groups...', onChanged: onSearch),
-        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
@@ -533,7 +535,7 @@ class _GroupsTab extends StatelessWidget {
               if (groups.isEmpty) {
                 return const _FeedMessageCard(
                   message:
-                      'No groups found yet. Create one and start posting with your runners.',
+                      'No joined groups yet. Search and join groups to see them here.',
                 );
               }
 
@@ -704,10 +706,9 @@ class _FeedMessageCard extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.hint, this.onChanged});
+  const _SearchField({required this.hint});
 
   final String hint;
-  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -727,7 +728,6 @@ class _SearchField extends StatelessWidget {
         children: [
           Expanded(
             child: TextField(
-              onChanged: onChanged,
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: hint,
