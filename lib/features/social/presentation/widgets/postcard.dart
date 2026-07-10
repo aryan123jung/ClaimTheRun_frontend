@@ -83,6 +83,7 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final authorAvatarProvider = _buildImageProvider(post.authorAvatarUrl);
 
     return Container(
       decoration: BoxDecoration(
@@ -108,7 +109,10 @@ class PostCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundImage: NetworkImage(post.authorAvatarUrl),
+                  backgroundImage: authorAvatarProvider,
+                  child: authorAvatarProvider == null
+                      ? const Icon(Icons.person_rounded, size: 18)
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -196,6 +200,21 @@ class PostCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  ImageProvider<Object>? _buildImageProvider(String imageValue) {
+    if (imageValue.isEmpty) return null;
+
+    if (imageValue.startsWith('data:')) {
+      try {
+        final base64Part = imageValue.split(',').last;
+        return MemoryImage(base64Decode(base64Part));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    return NetworkImage(imageValue);
   }
 }
 
