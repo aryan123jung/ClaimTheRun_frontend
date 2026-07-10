@@ -1,4 +1,6 @@
 import 'package:clain_the_run/features/addfriend/domain/entities/friend_user_entity.dart';
+import 'package:clain_the_run/features/call/presentation/pages/call_session_screen.dart';
+import 'package:clain_the_run/features/call/presentation/view_model/call_view_model.dart';
 import 'package:clain_the_run/features/message/presentation/state/message_state.dart';
 import 'package:clain_the_run/features/message/presentation/view_model/message_view_model.dart';
 import 'package:clain_the_run/features/message/presentation/widgets/chatbubble.dart';
@@ -125,13 +127,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _startCall({required bool isVideo}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${isVideo ? 'Video' : 'Voice'} calling will be added next.',
-        ),
-      ),
-    );
+    if (isVideo) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video calling will be added next.')),
+      );
+      return;
+    }
+
+    final notifier = ref.read(callViewModelProvider.notifier);
+    notifier
+        .startAudioCall(
+          friendId: widget.friendId,
+          friendName: widget.friendName,
+          avatarUrl: widget.avatarUrl,
+        )
+        .then((started) {
+          if (!mounted || !started) return;
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const CallSessionScreen()));
+        });
   }
 
   @override
