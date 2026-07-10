@@ -5,6 +5,7 @@ import 'package:clain_the_run/features/addfriend/presentation/pages/friend_reque
 import 'package:clain_the_run/features/addfriend/presentation/state/addfriend_state.dart';
 import 'package:clain_the_run/features/addfriend/presentation/view_model/addfriend_view_model.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
+import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
@@ -35,39 +36,6 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
 
   late final TabController _tabController;
 
-  final List<GroupModel> _groups = const [
-    GroupModel(
-      name: 'The Runners',
-      iconUrl: 'https://i.pravatar.cc/100?img=41',
-      memberCount: 8,
-      totalKm: 512,
-    ),
-    GroupModel(
-      name: 'Ultimate Runners',
-      iconUrl: 'https://i.pravatar.cc/100?img=42',
-      memberCount: 11,
-      totalKm: 1012,
-    ),
-    GroupModel(
-      name: 'Motivated Boys',
-      iconUrl: 'https://i.pravatar.cc/100?img=43',
-      memberCount: 3,
-      totalKm: 112,
-    ),
-    GroupModel(
-      name: 'Lost In Pace',
-      iconUrl: 'https://i.pravatar.cc/100?img=44',
-      memberCount: 14,
-      totalKm: 2312,
-    ),
-    GroupModel(
-      name: 'Wonder Women',
-      iconUrl: 'https://i.pravatar.cc/100?img=45',
-      memberCount: 2,
-      totalKm: 812,
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -77,6 +45,9 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
     );
     Future.microtask(
       () => ref.read(addFriendViewModelProvider.notifier).loadFriends(),
+    );
+    Future.microtask(
+      () => ref.read(socialViewModelProvider.notifier).loadGroups(),
     );
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) setState(() {});
@@ -170,7 +141,30 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                     _OutlinedActionButton(
                       icon: Icons.group_add_rounded,
                       label: 'Create Group',
-                      onTap: () => showCreateGroupPopup(context),
+                      onTap: () => showCreateGroupPopup(
+                        context,
+                        onSubmit: (name, description, imagePath) async {
+                          final success = await ref
+                              .read(socialViewModelProvider.notifier)
+                              .createGroup(
+                                name: name,
+                                description: description,
+                                imagePath: imagePath,
+                              );
+                          if (success) return null;
+                          return ref
+                                  .read(socialViewModelProvider)
+                                  .errorMessage ??
+                              'Unable to create group';
+                        },
+                        onSuccess: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Group created successfully.'),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ],
@@ -263,7 +257,23 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                           .loadFriends();
                     },
                   ),
-                  _GroupsTab(groups: _groups),
+                  _GroupsTab(
+                    groups: socialState.groups,
+                    isLoading:
+                        socialState.status == SocialStatus.loading &&
+                        socialState.groups.isEmpty,
+                    errorMessage: socialState.errorMessage,
+                    onRetry: () {
+                      ref
+                          .read(socialViewModelProvider.notifier)
+                          .loadGroups(force: true);
+                    },
+                    onSearch: (query) {
+                      ref
+                          .read(socialViewModelProvider.notifier)
+                          .loadGroups(search: query, force: true);
+                    },
+                  ),
                 ],
               ),
             ),
@@ -465,17 +475,27 @@ FriendModel _mapFriendUserToCard(FriendUserEntity friend) {
 }
 
 class _GroupsTab extends StatelessWidget {
-  const _GroupsTab({required this.groups});
+  const _GroupsTab({
+    required this.groups,
+    this.isLoading = false,
+    this.errorMessage,
+    this.onRetry,
+    this.onSearch,
+  });
 
-  final List<GroupModel> groups;
+  final List<GroupEntity> groups;
+  final bool isLoading;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
+  final ValueChanged<String>? onSearch;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
-          child: _SearchField(hint: 'Search groups...'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          child: _SearchField(hint: 'Search groups...', onChanged: onSearch),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -498,36 +518,54 @@ class _GroupsTab extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            itemCount: groups.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final group = groups[index];
+          child: Builder(
+            builder: (context) {
+              if (isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (errorMessage != null && groups.isEmpty) {
+                return _FeedMessageCard(
+                  message: errorMessage!,
+                  actionLabel: 'Retry',
+                  onTap: onRetry,
+                );
+              }
+              if (groups.isEmpty) {
+                return const _FeedMessageCard(
+                  message:
+                      'No groups found yet. Create one and start posting with your runners.',
+                );
+              }
 
-              return GroupCard(
-                group: group,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => GroupProfileScreen(
-                        group: group,
-                        description: _groupDescription(group.name),
-                        postCount: _groupPosts(group.name).length,
-                        posts: _groupPosts(group.name),
-                      ),
-                    ),
-                  );
-                },
-                onMessage: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => GroupMessageScreen(
-                        groupName: group.name,
-                        groupAvatarUrl: group.iconUrl,
-                        memberCount: group.memberCount,
-                      ),
-                    ),
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                itemCount: groups.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final group = groups[index];
+                  final groupCard = _mapGroupEntityToCard(group);
+
+                  return GroupCard(
+                    group: groupCard,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => GroupProfileScreen(group: group),
+                        ),
+                      );
+                    },
+                    onMessage: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => GroupMessageScreen(
+                            groupName: group.name,
+                            groupAvatarUrl: groupCard.iconUrl,
+                            memberCount: group.memberCount,
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               );
@@ -536,100 +574,6 @@ class _GroupsTab extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-String _groupDescription(String groupName) {
-  switch (groupName) {
-    case 'The Runners':
-      return 'Feel free to explore with us. We run, share routes, and push each other forward.';
-    case 'Ultimate Runners':
-      return 'Built for runners who love consistency, long miles, and weekend challenges together.';
-    case 'Motivated Boys':
-      return 'A small but relentless crew focused on staying accountable and getting stronger.';
-    case 'Lost In Pace':
-      return 'From easy jogs to hard efforts, this group is all about finding your rhythm.';
-    case 'Wonder Women':
-      return 'Supportive, strong, and always moving. A space for uplifting every member on the run.';
-    default:
-      return 'Run farther together and keep each other moving.';
-  }
-}
-
-List<PostModel> _groupPosts(String groupName) {
-  switch (groupName) {
-    case 'The Runners':
-      return const [
-        PostModel(
-          id: 'group-runners-1',
-          authorName: 'Aryan Jung Chhetri',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=11',
-          timestamp: 'Today, 7:15 AM',
-          caption: "How's the view???",
-          imageUrl:
-              'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800',
-          likeCount: 7,
-          commentCount: 2,
-        ),
-        PostModel(
-          id: 'group-runners-2',
-          authorName: 'Anjali Khadka',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=25',
-          timestamp: 'Yesterday, 7:15 AM',
-          caption: 'Just ran a 10km run!',
-          likeCount: 2,
-          commentCount: 5,
-        ),
-        PostModel(
-          id: 'group-runners-3',
-          authorName: 'Riya Kapoor',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=26',
-          timestamp: 'May 17, 7:15 AM',
-          caption: 'Morning run around the lake',
-          imageUrl:
-              'https://images.unsplash.com/photo-1502904550040-7534597429ae?w=800',
-          likeCount: 9,
-          commentCount: 4,
-        ),
-      ];
-    case 'Ultimate Runners':
-      return const [
-        PostModel(
-          id: 'group-ultimate-1',
-          authorName: 'Ram Khadka',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=12',
-          timestamp: 'Today, 6:10 AM',
-          caption: 'Sunrise tempo run with the crew.',
-          imageUrl:
-              'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=800',
-          likeCount: 11,
-          commentCount: 3,
-        ),
-      ];
-    case 'Motivated Boys':
-      return const [
-        PostModel(
-          id: 'group-motivated-1',
-          authorName: 'Aarav Sharma',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=13',
-          timestamp: 'Today, 8:04 AM',
-          caption: 'No excuses today. Hill repeats done.',
-          likeCount: 5,
-          commentCount: 1,
-        ),
-      ];
-    default:
-      return const [
-        PostModel(
-          id: 'group-default-1',
-          authorName: 'Group Admin',
-          authorAvatarUrl: 'https://i.pravatar.cc/150?img=18',
-          timestamp: 'Today',
-          caption: 'Welcome to the group. More updates coming soon.',
-          likeCount: 3,
-          commentCount: 0,
-        ),
-      ];
   }
 }
 
@@ -759,9 +703,10 @@ class _FeedMessageCard extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.hint});
+  const _SearchField({required this.hint, this.onChanged});
 
   final String hint;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -781,6 +726,7 @@ class _SearchField extends StatelessWidget {
         children: [
           Expanded(
             child: TextField(
+              onChanged: onChanged,
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: hint,
@@ -807,6 +753,21 @@ class _SearchField extends StatelessWidget {
       ),
     );
   }
+}
+
+GroupModel _mapGroupEntityToCard(GroupEntity group) {
+  final imageUrl = (group.imageUrl != null && group.imageUrl!.isNotEmpty)
+      ? group.imageUrl!
+      : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(group.name)}&background=E6F3DC&color=3B6D11';
+
+  return GroupModel(
+    id: group.id,
+    name: group.name,
+    iconUrl: imageUrl,
+    memberCount: group.memberCount,
+    description: group.description,
+    isJoined: group.isJoined,
+  );
 }
 
 class _MessagesButton extends StatelessWidget {

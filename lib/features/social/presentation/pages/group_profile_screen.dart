@@ -1,27 +1,39 @@
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
+import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
+import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
+import 'package:clain_the_run/features/social/presentation/state/social_state.dart';
+import 'package:clain_the_run/features/social/presentation/view_model/social_view_model.dart';
+import 'package:clain_the_run/features/social/presentation/widgets/create_post_popup.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/groupcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class GroupProfileScreen extends StatelessWidget {
-  const GroupProfileScreen({
-    super.key,
-    required this.group,
-    required this.posts,
-    this.description = 'Run farther together and keep each other moving.',
-    this.postCount,
-    this.isJoined = true,
-  });
+class GroupProfileScreen extends ConsumerStatefulWidget {
+  const GroupProfileScreen({super.key, required this.group});
 
-  final GroupModel group;
-  final List<PostModel> posts;
-  final String description;
-  final int? postCount;
-  final bool isJoined;
+  final GroupEntity group;
+
+  @override
+  ConsumerState<GroupProfileScreen> createState() => _GroupProfileScreenState();
+}
+
+class _GroupProfileScreenState extends ConsumerState<GroupProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(
+      () => ref
+          .read(socialViewModelProvider.notifier)
+          .loadGroupPosts(widget.group.id, force: true),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final totalPosts = postCount ?? posts.length;
+    final state = ref.watch(socialViewModelProvider);
+    final group = _currentGroup(state) ?? widget.group;
+    final posts = state.groupPostsById[group.id] ?? const [];
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -45,14 +57,16 @@ class GroupProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  _HeaderPillButton(
-                    icon: Icons.add_rounded,
-                    label: 'Add Post',
-                    outlined: true,
-                    compact: true,
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 12),
+                  if (group.isJoined) ...[
+                    _HeaderPillButton(
+                      icon: Icons.add_rounded,
+                      label: 'Add Post',
+                      outlined: true,
+                      compact: true,
+                      onTap: () => _openCreatePost(group.id),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   _CircleHeaderAction(
                     icon: Icons.chat_bubble_rounded,
                     onTap: () {
@@ -60,7 +74,7 @@ class GroupProfileScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (context) => GroupMessageScreen(
                             groupName: group.name,
-                            groupAvatarUrl: group.iconUrl,
+                            groupAvatarUrl: _groupImage(group),
                             memberCount: group.memberCount,
                           ),
                         ),
@@ -71,30 +85,72 @@ class GroupProfileScreen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                children: [
-                  _GroupHeroCard(
-                    group: group,
-                    description: description,
-                    totalPosts: totalPosts,
-                    isJoined: isJoined,
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Posts',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF111111),
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  await ref
+                      .read(socialViewModelProvider.notifier)
+                      .loadGroupPosts(group.id, force: true);
+                  await ref
+                      .read(socialViewModelProvider.notifier)
+                      .loadGroups(
+                        search: ref.read(socialViewModelProvider).groupSearchQuery,
+                        force: true,
+                      );
+                },
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                  children: [
+                    _GroupHeroCard(
+                      group: _toGroupModel(group),
+                      totalPosts: posts.length,
+                      onJoinToggle: () async {
+                        if (group.isJoined) {
+                          await ref
+                              .read(socialViewModelProvider.notifier)
+                              .leaveGroup(group.id);
+                        } else {
+                          await ref
+                              .read(socialViewModelProvider.notifier)
+                              .joinGroup(group.id);
+                        }
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  for (final post in posts) ...[
-                    PostCard(post: post),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Posts',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF111111),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (state.status == SocialStatus.loading && posts.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (state.errorMessage != null && posts.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Text(state.errorMessage!),
+                        ),
+                      )
+                    else if (posts.isEmpty)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Text('No group posts yet.'),
+                        ),
+                      )
+                    else
+                      for (final post in posts) ...[
+                        PostCard(post: _mapPostEntityToViewModel(post)),
+                        const SizedBox(height: 16),
+                      ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -102,20 +158,67 @@ class GroupProfileScreen extends StatelessWidget {
       ),
     );
   }
+
+  GroupEntity? _currentGroup(SocialState state) {
+    for (final group in state.groups) {
+      if (group.id == widget.group.id) return group;
+    }
+    return null;
+  }
+
+  void _openCreatePost(String groupId) {
+    showCreatePostPopup(
+      context,
+      onSubmit: (caption, imagePath) async {
+        final success = await ref
+            .read(socialViewModelProvider.notifier)
+            .createPost(
+              caption: caption,
+              imagePath: imagePath,
+              communityId: groupId,
+            );
+        if (success) return null;
+        return ref.read(socialViewModelProvider).errorMessage ??
+            'Unable to create group post';
+      },
+      onSuccess: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group post uploaded successfully.')),
+        );
+      },
+    );
+  }
+
+  GroupModel _toGroupModel(GroupEntity group) {
+    return GroupModel(
+      id: group.id,
+      name: group.name,
+      iconUrl: _groupImage(group),
+      memberCount: group.memberCount,
+      description: group.description,
+      isJoined: group.isJoined,
+    );
+  }
+
+  String _groupImage(GroupEntity group) {
+    final imageUrl = group.imageUrl;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return imageUrl;
+    }
+    return 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(group.name)}&background=E6F3DC&color=3B6D11';
+  }
 }
 
 class _GroupHeroCard extends StatelessWidget {
   const _GroupHeroCard({
     required this.group,
-    required this.description,
     required this.totalPosts,
-    required this.isJoined,
+    required this.onJoinToggle,
   });
 
   final GroupModel group;
-  final String description;
   final int totalPosts;
-  final bool isJoined;
+  final VoidCallback onJoinToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -129,13 +232,6 @@ class _GroupHeroCard extends StatelessWidget {
         border: Border.all(
           color: isDark ? const Color(0xFF233241) : const Color(0xFFE8E8E4),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Column(
         children: [
@@ -151,11 +247,6 @@ class _GroupHeroCard extends StatelessWidget {
                       ? const Color(0xFF16222E)
                       : const Color(0xFFF5F8F2),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark
-                        ? const Color(0xFF233241)
-                        : const Color(0xFFE2EBDD),
-                  ),
                 ),
                 child: ClipOval(
                   child: Image.network(group.iconUrl, fit: BoxFit.cover),
@@ -183,19 +274,19 @@ class _GroupHeroCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _HeaderPillButton(
-                          icon: isJoined
+                          icon: group.isJoined
                               ? Icons.check_rounded
                               : Icons.group_add_outlined,
-                          label: isJoined ? 'Joined' : 'Join',
+                          label: group.isJoined ? 'Joined' : 'Join',
                           outlined: true,
                           compact: true,
-                          onTap: () {},
+                          onTap: onJoinToggle,
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      description,
+                      group.description,
                       style: TextStyle(
                         fontSize: 14,
                         height: 1.4,
@@ -208,13 +299,6 @@ class _GroupHeroCard extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 18),
-          _HeroActionButton(
-            icon: Icons.directions_run_rounded,
-            label: 'Start Run',
-            filled: true,
-            onTap: () {},
           ),
           const SizedBox(height: 18),
           Container(
@@ -245,7 +329,10 @@ class _GroupHeroCard extends StatelessWidget {
                 ),
                 const _StatDivider(),
                 Expanded(
-                  child: _GroupStatBlock(value: '$totalPosts', label: 'Posts'),
+                  child: _GroupStatBlock(
+                    value: '$totalPosts',
+                    label: 'Posts',
+                  ),
                 ),
               ],
             ),
@@ -270,7 +357,7 @@ class _GroupStatBlock extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 23,
             fontWeight: FontWeight.w800,
             color: isDark ? Colors.white : const Color(0xFF111111),
           ),
@@ -280,7 +367,7 @@ class _GroupStatBlock extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 13,
-            color: isDark ? const Color(0xFF8FA0AE) : const Color(0xFF909090),
+            color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF8A8A8A),
           ),
         ),
       ],
@@ -293,11 +380,12 @@ class _StatDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 1,
-      height: 52,
-      color: isDark ? const Color(0xFF233241) : const Color(0xFFE3E3E0),
+      height: 42,
+      color: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF233241)
+          : const Color(0xFFE7E7E2),
     );
   }
 }
@@ -306,123 +394,61 @@ class _HeaderPillButton extends StatelessWidget {
   const _HeaderPillButton({
     required this.icon,
     required this.label,
-    required this.outlined,
+    required this.onTap,
+    this.outlined = false,
     this.compact = false,
-    this.onTap,
   });
 
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
   final bool outlined;
   final bool compact;
-  final VoidCallback? onTap;
-
-  static const _brandGreen = Color(0xFF72B63E);
-  static const _activeTextGreen = Color(0xFF3B6D11);
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = outlined
-        ? (isDark ? const Color(0xFF111C26) : Colors.white)
-        : _brandGreen.withValues(alpha: 0.62);
-    final textColor = outlined ? _activeTextGreen : Colors.white;
-    final borderColor = outlined
-        ? (isDark
-              ? const Color(0xFF72B63E).withValues(alpha: 0.70)
-              : _activeTextGreen.withValues(alpha: 0.85))
-        : Colors.transparent;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 12 : 16,
-            vertical: compact ? 9 : 12,
-          ),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: borderColor, width: outlined ? 1.4 : 0),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: compact ? 16 : 18, color: textColor),
-              SizedBox(width: compact ? 6 : 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: compact ? 12 : 13,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                ),
-              ),
-            ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 14 : 18,
+          vertical: compact ? 10 : 12,
+        ),
+        decoration: BoxDecoration(
+          color: outlined
+              ? Colors.transparent
+              : (isDark ? const Color(0xFF72B63E) : const Color(0xFF55A63A)),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: outlined
+                ? const Color(0xFFBFDDA8)
+                : Colors.transparent,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _HeroActionButton extends StatelessWidget {
-  const _HeroActionButton({
-    required this.icon,
-    required this.label,
-    required this.filled,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool filled;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = filled
-        ? const Color(0xFF72B63E)
-        : (isDark ? const Color(0xFF16222E) : const Color(0xFFF6FBF2));
-    final foregroundColor = filled ? Colors.white : const Color(0xFF3B6D11);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: filled
-                  ? Colors.transparent
-                  : (isDark
-                        ? const Color(0xFF233241)
-                        : const Color(0xFFDCE9D3)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: compact ? 18 : 20,
+              color: outlined
+                  ? const Color(0xFF72B63E)
+                  : Colors.white,
             ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: foregroundColor),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: foregroundColor,
-                ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: compact ? 14 : 15,
+                fontWeight: FontWeight.w700,
+                color: outlined
+                    ? const Color(0xFF72B63E)
+                    : Colors.white,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -430,24 +456,47 @@ class _HeroActionButton extends StatelessWidget {
 }
 
 class _CircleHeaderAction extends StatelessWidget {
-  const _CircleHeaderAction({required this.icon, this.onTap});
+  const _CircleHeaderAction({required this.icon, required this.onTap});
 
   final IconData icon;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF72B63E).withValues(alpha: 0.6),
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
-          child: Icon(icon, size: 18, color: Colors.white),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF16222E) : Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isDark ? const Color(0xFF233241) : const Color(0xFFE4E4E1),
+          ),
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: isDark ? Colors.white : const Color(0xFF3B6D11),
         ),
       ),
     );
   }
+}
+
+PostModel _mapPostEntityToViewModel(PostEntity post) {
+  return PostModel(
+    id: post.id,
+    authorName: post.author.fullname,
+    authorAvatarUrl: post.author.profileUrl ?? '',
+    timestamp: formatPostTimestamp(post.createdAt),
+    caption: post.caption,
+    imageUrl: post.imageUrl,
+    likeCount: post.likeCount,
+    commentCount: post.commentCount,
+    isLiked: post.isLiked,
+  );
 }

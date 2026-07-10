@@ -23,16 +23,22 @@ class CreatePostUsecase
     return _repository.createPost(
       caption: params.caption,
       imagePath: params.imagePath,
+      communityId: params.communityId,
     );
   }
 }
 
 class CreatePostUsecaseParams extends Equatable {
-  const CreatePostUsecaseParams({required this.caption, this.imagePath});
+  const CreatePostUsecaseParams({
+    required this.caption,
+    this.imagePath,
+    this.communityId,
+  });
 
   final String caption;
   final String? imagePath;
+  final String? communityId;
 
   @override
-  List<Object?> get props => [caption, imagePath];
+  List<Object?> get props => [caption, imagePath, communityId];
 }

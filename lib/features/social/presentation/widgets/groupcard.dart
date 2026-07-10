@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 
 class GroupModel {
   const GroupModel({
+    required this.id,
     required this.name,
     required this.iconUrl,
     required this.memberCount,
-    required this.totalKm,
+    this.description = '',
+    this.totalKm = 0,
+    this.isJoined = false,
   });
 
+  final String id;
   final String name;
   final String iconUrl;
   final int memberCount;
+  final String description;
   final double totalKm;
+  final bool isJoined;
 }
 
 /// A single row in the joined-groups list: group icon, name, member

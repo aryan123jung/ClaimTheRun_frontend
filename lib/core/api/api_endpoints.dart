@@ -279,29 +279,21 @@ class ApiEndpoints {
   // Calls
   static const String calls = '/calls';
 
-  // Chautari (Community)
-  static const String chautari = '/chautari';
-  static const String myChautari = '$chautari/my';
-  static const String searchChautari = '$chautari/search';
-  static String chautariById(String communityId) => '$chautari/$communityId';
-  static String joinChautari(String communityId) =>
-      '$chautari/$communityId/join';
-  static String leaveChautari(String communityId) =>
-      '$chautari/$communityId/leave';
-  static String chautariMemberCount(String communityId) =>
-      '$chautari/$communityId/member-count';
-  static String chautariCountByUser(String userId) => '$chautari/count/$userId';
-  static String chautariPosts(String communityId) =>
-      '$chautari/$communityId/posts';
-  static String reportChautari(String communityId) =>
-      '$chautari/$communityId/report';
+  // Groups
+  static const String groupsBase = '/group';
+  static const String myGroups = '$groupsBase/my';
+  static const String searchGroups = '$groupsBase/search';
+  static String groupById(String groupId) => '$groupsBase/$groupId';
+  static String joinGroup(String groupId) => '$groupsBase/$groupId/join';
+  static String leaveGroup(String groupId) => '$groupsBase/$groupId/leave';
+  static String groupPosts(String groupId) => '$groupsBase/$groupId/posts';
 
   // Reports (generic + admin)
   static const String reportsBase = '/reports';
   static String genericReportPost(String postId) => '$reportsBase/post/$postId';
   static String genericReportUser(String userId) => '$reportsBase/user/$userId';
-  static String genericReportChautari(String communityId) =>
-      '$reportsBase/chautari/$communityId';
+  static String genericReportGroup(String groupId) =>
+      '$reportsBase/group/$groupId';
   static const String myReports = '$reportsBase/my';
 
   static const String adminReportsStats = '/admin/reports/stats';

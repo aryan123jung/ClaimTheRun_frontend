@@ -1,7 +1,13 @@
+import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
+import 'package:clain_the_run/features/social/domain/usecases/create_group_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/create_post_usecase.dart';
+import 'package:clain_the_run/features/social/domain/usecases/get_group_posts_usecase.dart';
+import 'package:clain_the_run/features/social/domain/usecases/get_groups_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/get_my_posts_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/get_posts_usecase.dart';
+import 'package:clain_the_run/features/social/domain/usecases/join_group_usecase.dart';
+import 'package:clain_the_run/features/social/domain/usecases/leave_group_usecase.dart';
 import 'package:clain_the_run/features/social/domain/usecases/toggle_post_like_usecase.dart';
 import 'package:clain_the_run/features/social/presentation/state/social_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +19,11 @@ final socialViewModelProvider = NotifierProvider<SocialViewModel, SocialState>(
 class SocialViewModel extends Notifier<SocialState> {
   late final GetPostsUsecase _getPostsUsecase;
   late final GetMyPostsUsecase _getMyPostsUsecase;
+  late final GetGroupsUsecase _getGroupsUsecase;
+  late final GetGroupPostsUsecase _getGroupPostsUsecase;
+  late final CreateGroupUsecase _createGroupUsecase;
+  late final JoinGroupUsecase _joinGroupUsecase;
+  late final LeaveGroupUsecase _leaveGroupUsecase;
   late final CreatePostUsecase _createPostUsecase;
   late final TogglePostLikeUsecase _togglePostLikeUsecase;
 
@@ -20,6 +31,11 @@ class SocialViewModel extends Notifier<SocialState> {
   SocialState build() {
     _getPostsUsecase = ref.read(getPostsUsecaseProvider);
     _getMyPostsUsecase = ref.read(getMyPostsUsecaseProvider);
+    _getGroupsUsecase = ref.read(getGroupsUsecaseProvider);
+    _getGroupPostsUsecase = ref.read(getGroupPostsUsecaseProvider);
+    _createGroupUsecase = ref.read(createGroupUsecaseProvider);
+    _joinGroupUsecase = ref.read(joinGroupUsecaseProvider);
+    _leaveGroupUsecase = ref.read(leaveGroupUsecaseProvider);
     _createPostUsecase = ref.read(createPostUsecaseProvider);
     _togglePostLikeUsecase = ref.read(togglePostLikeUsecaseProvider);
     return const SocialState.initial();
@@ -77,11 +93,19 @@ class SocialViewModel extends Notifier<SocialState> {
     );
   }
 
-  Future<bool> createPost({required String caption, String? imagePath}) async {
+  Future<bool> createPost({
+    required String caption,
+    String? imagePath,
+    String? communityId,
+  }) async {
     state = state.copyWith(status: SocialStatus.submitting, clearError: true);
 
     final result = await _createPostUsecase(
-      CreatePostUsecaseParams(caption: caption, imagePath: imagePath),
+      CreatePostUsecaseParams(
+        caption: caption,
+        imagePath: imagePath,
+        communityId: communityId,
+      ),
     );
 
     return result.fold(
@@ -95,12 +119,124 @@ class SocialViewModel extends Notifier<SocialState> {
       (post) {
         state = state.copyWith(
           status: SocialStatus.loaded,
-          posts: [post, ...state.posts],
+          posts: communityId == null ? [post, ...state.posts] : state.posts,
           myPosts: [post, ...state.myPosts],
+          groupPostsById: communityId == null
+              ? state.groupPostsById
+              : {
+                  ...state.groupPostsById,
+                  communityId: [
+                    post,
+                    ...state.groupPostsById[communityId] ?? const [],
+                  ],
+                },
           clearError: true,
         );
         return true;
       },
+    );
+  }
+
+  Future<void> loadGroups({String? search, bool force = false}) async {
+    if (!force &&
+        search == state.groupSearchQuery &&
+        state.groups.isNotEmpty &&
+        state.status == SocialStatus.loaded) {
+      return;
+    }
+
+    state = state.copyWith(
+      status: state.groups.isEmpty ? SocialStatus.loading : state.status,
+      groupSearchQuery: search ?? '',
+      clearError: true,
+    );
+
+    final result = await _getGroupsUsecase(search: search);
+    result.fold(
+      (failure) => state = state.copyWith(
+        status: SocialStatus.error,
+        errorMessage: failure.message,
+      ),
+      (groups) => state = state.copyWith(
+        status: SocialStatus.loaded,
+        groups: groups,
+        clearError: true,
+      ),
+    );
+  }
+
+  Future<void> loadGroupPosts(String groupId, {bool force = false}) async {
+    if (!force && state.groupPostsById[groupId]?.isNotEmpty == true) {
+      return;
+    }
+
+    state = state.copyWith(status: SocialStatus.loading, clearError: true);
+    final result = await _getGroupPostsUsecase(groupId);
+    result.fold(
+      (failure) => state = state.copyWith(
+        status: SocialStatus.error,
+        errorMessage: failure.message,
+      ),
+      (posts) => state = state.copyWith(
+        status: SocialStatus.loaded,
+        groupPostsById: {...state.groupPostsById, groupId: posts},
+        clearError: true,
+      ),
+    );
+  }
+
+  Future<bool> createGroup({
+    required String name,
+    required String description,
+    String? imagePath,
+  }) async {
+    state = state.copyWith(status: SocialStatus.submitting, clearError: true);
+    final result = await _createGroupUsecase(
+      CreateGroupParams(
+        name: name,
+        description: description,
+        imagePath: imagePath,
+      ),
+    );
+
+    return result.fold(
+      (failure) {
+        state = state.copyWith(
+          status: SocialStatus.error,
+          errorMessage: failure.message,
+        );
+        return false;
+      },
+      (group) {
+        state = state.copyWith(
+          status: SocialStatus.loaded,
+          groups: [group, ..._withoutGroup(group.id)],
+          clearError: true,
+        );
+        return true;
+      },
+    );
+  }
+
+  Future<void> joinGroup(String groupId) async {
+    final result = await _joinGroupUsecase(groupId);
+    result.fold(
+      (failure) => state = state.copyWith(
+        status: SocialStatus.error,
+        errorMessage: failure.message,
+      ),
+      (group) => _upsertGroup(group),
+    );
+  }
+
+  Future<void> leaveGroup(String groupId) async {
+    final result = await _leaveGroupUsecase(groupId);
+    result.fold(
+      (failure) => state = state.copyWith(
+        status: SocialStatus.error,
+        errorMessage: failure.message,
+      ),
+      (group) => _upsertGroup(group),
     );
   }
 
@@ -135,5 +271,17 @@ class SocialViewModel extends Notifier<SocialState> {
       for (final post in posts)
         if (post.id == updatedPost.id) updatedPost else post,
     ];
+  }
+
+  List<GroupEntity> _withoutGroup(String groupId) {
+    return state.groups.where((group) => group.id != groupId).toList();
+  }
+
+  void _upsertGroup(GroupEntity group) {
+    state = state.copyWith(
+      status: SocialStatus.loaded,
+      groups: [group, ..._withoutGroup(group.id)],
+      clearError: true,
+    );
   }
 }

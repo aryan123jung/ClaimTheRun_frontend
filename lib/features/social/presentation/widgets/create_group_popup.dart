@@ -1,8 +1,19 @@
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
-Future<void> showCreateGroupPopup(BuildContext context) {
+Future<void> showCreateGroupPopup(
+  BuildContext context, {
+  required Future<String?> Function(
+    String name,
+    String description,
+    String? imagePath,
+  )
+  onSubmit,
+  VoidCallback? onSuccess,
+}) {
   return showGeneralDialog<void>(
     context: context,
     barrierLabel: 'Create group',
@@ -10,7 +21,7 @@ Future<void> showCreateGroupPopup(BuildContext context) {
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (context, animation, secondaryAnimation) {
-      return const _CreateGroupPopupOverlay();
+      return _CreateGroupPopupOverlay(onSubmit: onSubmit, onSuccess: onSuccess);
     },
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(
@@ -30,7 +41,10 @@ Future<void> showCreateGroupPopup(BuildContext context) {
 }
 
 class _CreateGroupPopupOverlay extends StatelessWidget {
-  const _CreateGroupPopupOverlay();
+  const _CreateGroupPopupOverlay({required this.onSubmit, this.onSuccess});
+
+  final Future<String?> Function(String, String, String?) onSubmit;
+  final VoidCallback? onSuccess;
 
   @override
   Widget build(BuildContext context) {
@@ -47,12 +61,18 @@ class _CreateGroupPopupOverlay extends StatelessWidget {
               ),
             ),
           ),
-          const SafeArea(
+          SafeArea(
             child: Align(
               alignment: Alignment.center,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                child: CreateGroupPopupCard(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 24,
+                ),
+                child: CreateGroupPopupCard(
+                  onSubmit: onSubmit,
+                  onSuccess: onSuccess,
+                ),
               ),
             ),
           ),
@@ -63,7 +83,14 @@ class _CreateGroupPopupOverlay extends StatelessWidget {
 }
 
 class CreateGroupPopupCard extends StatefulWidget {
-  const CreateGroupPopupCard({super.key});
+  const CreateGroupPopupCard({
+    super.key,
+    required this.onSubmit,
+    this.onSuccess,
+  });
+
+  final Future<String?> Function(String, String, String?) onSubmit;
+  final VoidCallback? onSuccess;
 
   @override
   State<CreateGroupPopupCard> createState() => _CreateGroupPopupCardState();
@@ -72,6 +99,13 @@ class CreateGroupPopupCard extends StatefulWidget {
 class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  bool _isSubmitting = false;
+  bool _isPickingImage = false;
+  String? _selectedImagePath;
+  Uint8List? _selectedImageBytes;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -94,13 +128,6 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF111C26) : Colors.white,
           borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 30,
-              offset: const Offset(0, 14),
-            ),
-          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -136,7 +163,7 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                               : const Color(0xFF111111),
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         'Build your running community.',
                         style: TextStyle(
@@ -183,12 +210,12 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
             const SizedBox(height: 10),
             InkWell(
               borderRadius: BorderRadius.circular(22),
-              onTap: () {},
+              onTap: _isPickingImage ? null : _pickImage,
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,
-                  vertical: 30,
+                  vertical: 24,
                 ),
                 decoration: BoxDecoration(
                   color: isDark
@@ -202,25 +229,40 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                     width: 1.8,
                   ),
                 ),
-                child: Column(
-                  children: const [
-                    _GroupUploadBadge(),
-                    SizedBox(height: 14),
-                    Text(
-                      'Tap to add photos',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF3E8F1F),
+                child: _selectedImageBytes == null
+                    ? Column(
+                        children: [
+                          if (_isPickingImage)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 16),
+                              child: SizedBox(
+                                height: 28,
+                                width: 28,
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else
+                            const _GroupUploadBadge(),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'Tap to add photo',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF3E8F1F),
+                            ),
+                          ),
+                        ],
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.memory(
+                          _selectedImageBytes!,
+                          height: 170,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'or drag and drop',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF818181)),
-                    ),
-                  ],
-                ),
               ),
             ),
             const SizedBox(height: 18),
@@ -237,15 +279,10 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
               child: TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  hintText: 'Enter Group Name',
+                  hintText: 'Enter group name',
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
-                  hintStyle: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF7E848E),
-                  ),
                 ),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontSize: 15,
@@ -282,11 +319,6 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                   hintText: 'What is your group about?',
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.fromLTRB(18, 14, 18, 14),
-                  hintStyle: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF7E848E),
-                  ),
                 ),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontSize: 15,
@@ -294,31 +326,96 @@ class _CreateGroupPopupCardState extends State<CreateGroupPopupCard> {
                 ),
               ),
             ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ],
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF55A63A),
                   foregroundColor: Colors.white,
-                  elevation: 0,
                   minimumSize: const Size.fromHeight(54),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  textStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
                 ),
-                child: const Text('Create Group'),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : const Text('Create Group'),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _pickImage() async {
+    setState(() {
+      _isPickingImage = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final file = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _selectedImagePath = file.path;
+        _selectedImageBytes = bytes;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    final description = _descriptionController.text.trim();
+
+    if (name.isEmpty || description.isEmpty) {
+      setState(() {
+        _errorMessage = 'Group name and description are required.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    final error = await widget.onSubmit(name, description, _selectedImagePath);
+    if (!mounted) return;
+
+    setState(() {
+      _isSubmitting = false;
+      _errorMessage = error;
+    });
+
+    if (error == null) {
+      Navigator.of(context).pop();
+      widget.onSuccess?.call();
+    }
   }
 }
 
