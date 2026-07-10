@@ -55,7 +55,7 @@ class MessageRemoteDatasource implements IMessageDatasource {
 
   @override
   Future<void> markConversationRead(String conversationId) async {
-    await _apiClient.post(ApiEndpoints.markConversationRead(conversationId));
+    await _apiClient.patch(ApiEndpoints.markConversationRead(conversationId));
   }
 
   @override
