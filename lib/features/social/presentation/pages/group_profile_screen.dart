@@ -1,3 +1,4 @@
+import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
@@ -93,7 +94,9 @@ class _GroupProfileScreenState extends ConsumerState<GroupProfileScreen> {
                   await ref
                       .read(socialViewModelProvider.notifier)
                       .loadGroups(
-                        search: ref.read(socialViewModelProvider).groupSearchQuery,
+                        search: ref
+                            .read(socialViewModelProvider)
+                            .groupSearchQuery,
                         force: true,
                       );
                 },
@@ -203,7 +206,7 @@ class _GroupProfileScreenState extends ConsumerState<GroupProfileScreen> {
   String _groupImage(GroupEntity group) {
     final imageUrl = group.imageUrl;
     if (imageUrl != null && imageUrl.isNotEmpty) {
-      return imageUrl;
+      return ApiEndpoints.uploadUrl(imageUrl);
     }
     return 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(group.name)}&background=E6F3DC&color=3B6D11';
   }
@@ -329,10 +332,7 @@ class _GroupHeroCard extends StatelessWidget {
                 ),
                 const _StatDivider(),
                 Expanded(
-                  child: _GroupStatBlock(
-                    value: '$totalPosts',
-                    label: 'Posts',
-                  ),
+                  child: _GroupStatBlock(value: '$totalPosts', label: 'Posts'),
                 ),
               ],
             ),
@@ -422,9 +422,7 @@ class _HeaderPillButton extends StatelessWidget {
               : (isDark ? const Color(0xFF72B63E) : const Color(0xFF55A63A)),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: outlined
-                ? const Color(0xFFBFDDA8)
-                : Colors.transparent,
+            color: outlined ? const Color(0xFFBFDDA8) : Colors.transparent,
           ),
         ),
         child: Row(
@@ -433,9 +431,7 @@ class _HeaderPillButton extends StatelessWidget {
             Icon(
               icon,
               size: compact ? 18 : 20,
-              color: outlined
-                  ? const Color(0xFF72B63E)
-                  : Colors.white,
+              color: outlined ? const Color(0xFF72B63E) : Colors.white,
             ),
             const SizedBox(width: 8),
             Text(
@@ -443,9 +439,7 @@ class _HeaderPillButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: compact ? 14 : 15,
                 fontWeight: FontWeight.w700,
-                color: outlined
-                    ? const Color(0xFF72B63E)
-                    : Colors.white,
+                color: outlined ? const Color(0xFF72B63E) : Colors.white,
               ),
             ),
           ],

@@ -78,7 +78,13 @@ class GroupCard extends StatelessWidget {
                   ),
                 ),
                 child: ClipOval(
-                  child: Image.network(group.iconUrl, fit: BoxFit.cover),
+                  child: Image.network(
+                    group.iconUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _GroupAvatarFallback(name: group.name);
+                    },
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -139,6 +145,39 @@ class GroupCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _GroupAvatarFallback extends StatelessWidget {
+  const _GroupAvatarFallback({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFE6F3DC),
+      alignment: Alignment.center,
+      child: Text(
+        _initials(name),
+        style: const TextStyle(
+          color: Color(0xFF3B6D11),
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  String _initials(String value) {
+    final parts = value
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .toList();
+    if (parts.isEmpty) return 'G';
+    return parts.map((part) => part[0].toUpperCase()).join();
   }
 }
 

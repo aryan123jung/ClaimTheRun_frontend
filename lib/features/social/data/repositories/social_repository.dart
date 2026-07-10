@@ -77,7 +77,9 @@ class SocialRepository implements ISocialRepository {
   }
 
   @override
-  Future<Either<Failure, List<GroupEntity>>> fetchGroups({String? search}) async {
+  Future<Either<Failure, List<GroupEntity>>> fetchGroups({
+    String? search,
+  }) async {
     try {
       final groups = await _socialDatasource.fetchGroups(search: search);
       return Right(groups.map((group) => group.toEntity()).toList());
@@ -85,6 +87,23 @@ class SocialRepository implements ISocialRepository {
       return Left(
         ApiFailure(
           message: _extractErrorMessage(error) ?? 'Unable to load groups',
+          statusCode: error.response?.statusCode,
+        ),
+      );
+    } catch (error) {
+      return Left(ApiFailure(message: error.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<GroupEntity>>> fetchMyGroups() async {
+    try {
+      final groups = await _socialDatasource.fetchMyGroups();
+      return Right(groups.map((group) => group.toEntity()).toList());
+    } on DioException catch (error) {
+      return Left(
+        ApiFailure(
+          message: _extractErrorMessage(error) ?? 'Unable to load my groups',
           statusCode: error.response?.statusCode,
         ),
       );
@@ -113,7 +132,9 @@ class SocialRepository implements ISocialRepository {
   }
 
   @override
-  Future<Either<Failure, GroupEntity>> joinGroup({required String groupId}) async {
+  Future<Either<Failure, GroupEntity>> joinGroup({
+    required String groupId,
+  }) async {
     try {
       final group = await _socialDatasource.joinGroup(groupId: groupId);
       if (group == null) {

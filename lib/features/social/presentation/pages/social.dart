@@ -551,7 +551,8 @@ class _GroupsTab extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => GroupProfileScreen(group: group),
+                          builder: (context) =>
+                              GroupProfileScreen(group: group),
                         ),
                       );
                     },
@@ -757,7 +758,7 @@ class _SearchField extends StatelessWidget {
 
 GroupModel _mapGroupEntityToCard(GroupEntity group) {
   final imageUrl = (group.imageUrl != null && group.imageUrl!.isNotEmpty)
-      ? group.imageUrl!
+      ? ApiEndpoints.uploadUrl(group.imageUrl!)
       : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(group.name)}&background=E6F3DC&color=3B6D11';
 
   return GroupModel(

@@ -207,7 +207,7 @@ class ApiClient {
       return <String>[path];
     }
 
-    final isUploadRequest = _isUploadRequest(path, options);
+    final isUploadRequest = _isUploadRequest(path);
     final baseUrls = isUploadRequest
         ? ApiEndpoints.candidateUploadBaseUrls
         : ApiEndpoints.candidateBaseUrls;
@@ -215,15 +215,11 @@ class ApiClient {
     return baseUrls.map((baseUrl) => '$baseUrl$path').toList();
   }
 
-  bool _isUploadRequest(String path, Options? options) {
+  bool _isUploadRequest(String path) {
     if (path.startsWith('/uploads/') || path.startsWith('uploads/')) {
       return true;
     }
-
-    final contentType =
-        options?.contentType?.toString().toLowerCase() ??
-        options?.headers?['Content-Type']?.toString().toLowerCase();
-    return contentType?.contains('multipart/form-data') == true;
+    return false;
   }
 
   bool _isAbsoluteUrl(String path) {

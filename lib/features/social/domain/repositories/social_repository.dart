@@ -7,6 +7,7 @@ abstract interface class ISocialRepository {
   Future<Either<Failure, List<PostEntity>>> fetchPosts();
   Future<Either<Failure, List<PostEntity>>> fetchMyPosts();
   Future<Either<Failure, List<GroupEntity>>> fetchGroups({String? search});
+  Future<Either<Failure, List<GroupEntity>>> fetchMyGroups();
   Future<Either<Failure, GroupEntity>> createGroup({
     required String name,
     required String description,

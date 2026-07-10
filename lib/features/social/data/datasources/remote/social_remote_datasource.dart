@@ -54,10 +54,7 @@ class SocialRemoteDatasource implements ISocialDatasource {
     required String description,
     String? imagePath,
   }) async {
-    final payload = <String, dynamic>{
-      'name': name,
-      'description': description,
-    };
+    final payload = <String, dynamic>{'name': name, 'description': description};
     if (imagePath != null && imagePath.isNotEmpty) {
       payload['groupImage'] = await MultipartFile.fromFile(
         imagePath,
@@ -100,6 +97,18 @@ class SocialRemoteDatasource implements ISocialDatasource {
           ? null
           : {'search': search.trim()},
     );
+    final rawGroups = (response.data['data'] as List?) ?? const [];
+    return rawGroups
+        .map(
+          (item) =>
+              GroupApiModel.fromJson(Map<String, dynamic>.from(item as Map)),
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<GroupApiModel>> fetchMyGroups() async {
+    final response = await _apiClient.get(ApiEndpoints.myGroups);
     final rawGroups = (response.data['data'] as List?) ?? const [];
     return rawGroups
         .map(
