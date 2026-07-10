@@ -13,12 +13,14 @@ class ChatScreen extends ConsumerStatefulWidget {
     required this.friendName,
     required this.friendUsername,
     required this.avatarUrl,
+    this.initialConversationId,
   });
 
   final String friendId;
   final String friendName;
   final String friendUsername;
   final String avatarUrl;
+  final String? initialConversationId;
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -50,6 +52,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _bootstrapConversation() async {
     final notifier = ref.read(messageViewModelProvider.notifier);
+    final conversationId = widget.initialConversationId;
+
+    if (conversationId != null && conversationId.isNotEmpty) {
+      setState(() {
+        _conversationId = conversationId;
+      });
+      await notifier.ensureConversationJoined(conversationId);
+      await notifier.loadMessages(conversationId);
+      _jumpToBottom();
+      return;
+    }
+
     final conversation = await notifier.openConversationWithFriend(
       FriendUserEntity(
         id: widget.friendId,
@@ -66,7 +80,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _conversationId = conversation.id;
     });
 
-    await notifier.loadMessages(conversation.id, force: true);
+    await notifier.loadMessages(conversation.id);
     _jumpToBottom();
   }
 

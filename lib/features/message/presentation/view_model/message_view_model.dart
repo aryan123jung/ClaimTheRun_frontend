@@ -67,6 +67,19 @@ class MessageViewModel extends Notifier<MessageState> {
   Future<MessageConversationEntity?> openConversationWithFriend(
     FriendUserEntity friend,
   ) async {
+    final existingConversation = state.conversations
+        .where((item) => item.otherUser.id == friend.id)
+        .firstOrNull;
+    if (existingConversation != null) {
+      await ensureConversationJoined(existingConversation.id);
+      state = state.copyWith(
+        status: MessageStatus.loaded,
+        activeConversation: existingConversation,
+        clearError: true,
+      );
+      return existingConversation;
+    }
+
     state = state.copyWith(status: MessageStatus.loading, clearError: true);
     final result = await _getOrCreateConversationUsecase(
       UserIdParams(userId: friend.id),
@@ -81,7 +94,7 @@ class MessageViewModel extends Notifier<MessageState> {
         return null;
       },
       (conversation) {
-        _messageSocketService.joinConversation(conversation.id);
+        ensureConversationJoined(conversation.id);
         state = state.copyWith(
           status: MessageStatus.loaded,
           activeConversation: conversation,
@@ -91,6 +104,10 @@ class MessageViewModel extends Notifier<MessageState> {
         return conversation;
       },
     );
+  }
+
+  Future<void> ensureConversationJoined(String conversationId) async {
+    await _messageSocketService.joinConversation(conversationId);
   }
 
   Future<void> loadMessages(String conversationId, {bool force = false}) async {

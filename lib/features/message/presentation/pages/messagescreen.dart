@@ -168,6 +168,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (context) => ChatScreen(
+                                  initialConversationId: conversation.id,
                                   friendId: conversation.otherUser.id,
                                   friendName: conversation.otherUser.fullname,
                                   friendUsername:
