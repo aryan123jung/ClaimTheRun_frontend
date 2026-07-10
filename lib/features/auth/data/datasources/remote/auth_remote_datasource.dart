@@ -72,23 +72,26 @@ class AuthRemoteDatasource implements IAuthRemoteDatasource {
     String? bio,
     String? profileImagePath,
   }) async {
-    final payload = <String, dynamic>{};
-    if (fullname != null) {
-      payload['fullname'] = fullname;
-    }
-    if (bio != null) {
-      payload['bio'] = bio;
-    }
-    if (profileImagePath != null && profileImagePath.isNotEmpty) {
-      payload['profileImage'] = await MultipartFile.fromFile(
-        profileImagePath,
-        filename: profileImagePath.split('/').last,
-      );
+    Future<FormData> buildPayload() async {
+      final payload = <String, dynamic>{};
+      if (fullname != null) {
+        payload['fullname'] = fullname;
+      }
+      if (bio != null) {
+        payload['bio'] = bio;
+      }
+      if (profileImagePath != null && profileImagePath.isNotEmpty) {
+        payload['profileImage'] = await MultipartFile.fromFile(
+          profileImagePath,
+          filename: profileImagePath.split('/').last,
+        );
+      }
+      return FormData.fromMap(payload);
     }
 
-    final response = await _apiClient.put(
+    final response = await _apiClient.putWithDataFactory(
       ApiEndpoints.authMe,
-      data: FormData.fromMap(payload),
+      dataFactory: buildPayload,
       options: Options(contentType: 'multipart/form-data'),
     );
 

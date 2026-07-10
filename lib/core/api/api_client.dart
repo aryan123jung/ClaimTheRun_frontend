@@ -119,6 +119,24 @@ class ApiClient {
     );
   }
 
+  Future<Response> putWithDataFactory(
+    String path, {
+    required Future<dynamic> Function() dataFactory,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    return _sendWithFallback(
+      path: path,
+      options: options,
+      request: (resolvedPath) async => _dio.put(
+        resolvedPath,
+        data: await dataFactory(),
+        queryParameters: queryParameters,
+        options: options,
+      ),
+    );
+  }
+
   // PATCH request
   Future<Response> patch(
     String path, {
