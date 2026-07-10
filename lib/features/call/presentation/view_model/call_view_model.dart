@@ -29,6 +29,8 @@ class CallViewModel extends Notifier<CallState> {
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   bool _listenersBound = false;
+  Map<String, dynamic>? _pendingOffer;
+  final List<Map<String, dynamic>> _pendingCandidates = [];
 
   @override
   CallState build() {
@@ -153,6 +155,8 @@ class CallViewModel extends Notifier<CallState> {
     state = state.copyWith(status: CallStatus.connecting, clearError: true);
     await _stopRingtone();
 
+    await _applyPendingOffer();
+    await _flushPendingCandidates();
     _socketService.accept({'callId': callId, 'callerId': participant.id});
   }
 
@@ -194,6 +198,8 @@ class CallViewModel extends Notifier<CallState> {
   }
 
   void _handleIncomingCall(Map<String, dynamic> payload) {
+    _pendingOffer = null;
+    _pendingCandidates.clear();
     final selfId =
         ref.read(authViewModelProvider).authEntity?.id ?? state.selfId;
     state = CallState(
@@ -236,29 +242,15 @@ class CallViewModel extends Notifier<CallState> {
     final type = signal['type']?.toString();
 
     if (type == 'offer') {
-      await _createPeerConnection(isCaller: false);
       final sdp = signal['sdp']?.toString();
       if (sdp == null) return;
-      await _peerConnection!.setRemoteDescription(
-        RTCSessionDescription(sdp, 'offer'),
-      );
-      final answer = await _peerConnection!.createAnswer({
-        'offerToReceiveAudio': true,
-        'offerToReceiveVideo': false,
-      });
-      await _peerConnection!.setLocalDescription(answer);
+      _pendingOffer = signal;
+      if (state.status != CallStatus.incoming || _peerConnection == null) {
+        return;
+      }
 
-      final selfId = state.selfId;
-      final participantId = state.participant?.id;
-      if (selfId == null || participantId == null) return;
-      _socketService.signal({
-        'callId': callId,
-        'fromUserId': selfId,
-        'toUserId': participantId,
-        'data': {'type': 'answer', 'sdp': answer.sdp},
-      });
-      await _stopRingtone();
-      state = state.copyWith(status: CallStatus.connecting, clearError: true);
+      await _applyPendingOffer();
+      await _flushPendingCandidates();
       return;
     }
 
@@ -274,15 +266,11 @@ class CallViewModel extends Notifier<CallState> {
     }
 
     if (type == 'candidate') {
-      final candidate = signal['candidate']?.toString();
-      if (candidate == null || _peerConnection == null) return;
-      await _peerConnection!.addCandidate(
-        RTCIceCandidate(
-          candidate,
-          signal['sdpMid']?.toString(),
-          signal['sdpMLineIndex'] as int?,
-        ),
-      );
+      if (_peerConnection == null) {
+        _pendingCandidates.add(signal);
+        return;
+      }
+      await _addIceCandidate(signal);
     }
   }
 
@@ -360,6 +348,8 @@ class CallViewModel extends Notifier<CallState> {
   }
 
   Future<void> _disposeCallResources() async {
+    _pendingOffer = null;
+    _pendingCandidates.clear();
     final stream = _localStream;
     _localStream = null;
     for (final track in stream?.getTracks() ?? const []) {
@@ -386,5 +376,58 @@ class CallViewModel extends Notifier<CallState> {
 
   Future<void> _stopRingtone() async {
     await _ringtonePlayer.stop();
+  }
+
+  Future<void> _applyPendingOffer() async {
+    final offer = _pendingOffer;
+    final peerConnection = _peerConnection;
+    if (offer == null || peerConnection == null) return;
+
+    final sdp = offer['sdp']?.toString();
+    if (sdp == null) return;
+
+    await peerConnection.setRemoteDescription(
+      RTCSessionDescription(sdp, 'offer'),
+    );
+    final answer = await peerConnection.createAnswer({
+      'offerToReceiveAudio': true,
+      'offerToReceiveVideo': false,
+    });
+    await peerConnection.setLocalDescription(answer);
+
+    final selfId = state.selfId;
+    final participantId = state.participant?.id;
+    if (selfId != null && participantId != null) {
+      _socketService.signal({
+        'callId': state.callId,
+        'fromUserId': selfId,
+        'toUserId': participantId,
+        'data': {'type': 'answer', 'sdp': answer.sdp},
+      });
+    }
+
+    _pendingOffer = null;
+  }
+
+  Future<void> _flushPendingCandidates() async {
+    if (_peerConnection == null || _pendingCandidates.isEmpty) return;
+    final queued = List<Map<String, dynamic>>.from(_pendingCandidates);
+    _pendingCandidates.clear();
+    for (final candidate in queued) {
+      await _addIceCandidate(candidate);
+    }
+  }
+
+  Future<void> _addIceCandidate(Map<String, dynamic> signal) async {
+    final candidate = signal['candidate']?.toString();
+    final peerConnection = _peerConnection;
+    if (candidate == null || peerConnection == null) return;
+    await peerConnection.addCandidate(
+      RTCIceCandidate(
+        candidate,
+        signal['sdpMid']?.toString(),
+        signal['sdpMLineIndex'] as int?,
+      ),
+    );
   }
 }

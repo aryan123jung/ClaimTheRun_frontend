@@ -1,6 +1,3 @@
-import 'package:clain_the_run/features/call/presentation/pages/call_session_screen.dart';
-import 'package:clain_the_run/features/call/presentation/state/call_state.dart';
-import 'package:clain_the_run/features/call/presentation/view_model/call_view_model.dart';
 import 'package:clain_the_run/features/home/presentation/pages/home.dart';
 import 'package:clain_the_run/features/leaderboard/presentation/pages/leaderboard.dart';
 import 'package:clain_the_run/features/map/presentation/pages/map.dart';
@@ -18,7 +15,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _selectedIndex = 0;
-  bool _isShowingCallScreen = false;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -29,28 +25,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    Future<void>.microtask(
-      () => ref.read(callViewModelProvider.notifier).ensureReady(),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    ref.listen<CallState>(callViewModelProvider, (previous, next) {
-      final shouldOpen =
-          next.status == CallStatus.incoming && !_isShowingCallScreen;
-      if (shouldOpen) {
-        _isShowingCallScreen = true;
-        Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const CallSessionScreen()))
-            .whenComplete(() {
-              _isShowingCallScreen = false;
-            });
-      }
-    });
-
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

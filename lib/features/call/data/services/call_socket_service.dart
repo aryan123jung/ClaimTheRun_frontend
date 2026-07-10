@@ -16,6 +16,7 @@ class CallSocketService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   io.Socket? _socket;
   bool _isConnecting = false;
+  int _socketUrlIndex = 0;
 
   void Function(Map<String, dynamic> payload)? onIncomingCall;
   void Function(Map<String, dynamic> payload)? onAccepted;
@@ -24,7 +25,13 @@ class CallSocketService {
   void Function(Map<String, dynamic> payload)? onSignal;
 
   Future<void> connect() async {
-    if (_socket != null) return;
+    if (_socket != null) {
+      if (_socket!.connected) {
+        return;
+      }
+      _socket!.dispose();
+      _socket = null;
+    }
     if (_isConnecting) return;
     _isConnecting = true;
 
@@ -34,8 +41,11 @@ class CallSocketService {
       return;
     }
 
+    final socketBaseUrls = ApiEndpoints.candidateUploadBaseUrls;
+    final socketBaseUrl =
+        socketBaseUrls[_socketUrlIndex.clamp(0, socketBaseUrls.length - 1)];
     final socket = io.io(
-      ApiEndpoints.uploadBaseUrl,
+      socketBaseUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()
@@ -47,9 +57,16 @@ class CallSocketService {
       _isConnecting = false;
     });
     socket.onConnectError((_) {
+      _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
     });
     socket.onError((_) {
+      _tryNextSocketHost(socketBaseUrls);
+      _isConnecting = false;
+    });
+    socket.onDisconnect((_) {
+      _socket?.dispose();
+      _socket = null;
       _isConnecting = false;
     });
     socket.on('call:incoming', (data) {
@@ -92,5 +109,17 @@ class CallSocketService {
     _socket?.dispose();
     _socket = null;
     _isConnecting = false;
+    _socketUrlIndex = 0;
+  }
+
+  void _tryNextSocketHost(List<String> socketBaseUrls) {
+    if (_socketUrlIndex >= socketBaseUrls.length - 1) {
+      return;
+    }
+
+    _socket?.dispose();
+    _socket = null;
+    _socketUrlIndex += 1;
+    connect();
   }
 }
