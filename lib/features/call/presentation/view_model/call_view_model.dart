@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/call/data/services/call_socket_service.dart';
 import 'package:clain_the_run/features/call/presentation/state/call_state.dart';
@@ -13,6 +14,8 @@ final callViewModelProvider = NotifierProvider<CallViewModel, CallState>(
 );
 
 class CallViewModel extends Notifier<CallState> {
+  static const _incomingCallSound = 'sounds/incoming-call.mp3';
+  static const _outgoingCallSound = 'sounds/outgoing-call.mp3';
   static const _iceServers = <String, dynamic>{
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
@@ -22,6 +25,7 @@ class CallViewModel extends Notifier<CallState> {
 
   late final CallSocketService _socketService;
   final _uuid = const Uuid();
+  final AudioPlayer _ringtonePlayer = AudioPlayer();
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   bool _listenersBound = false;
@@ -31,7 +35,11 @@ class CallViewModel extends Notifier<CallState> {
     _socketService = ref.read(callSocketServiceProvider);
     _bindSocketListeners();
     Future<void>.microtask(_socketService.connect);
-    ref.onDispose(_disposeCallResources);
+    ref.onDispose(() async {
+      await _stopRingtone();
+      await _disposeCallResources();
+      await _ringtonePlayer.dispose();
+    });
     return const CallState();
   }
 
@@ -48,70 +56,82 @@ class CallViewModel extends Notifier<CallState> {
     required String friendName,
     required String avatarUrl,
   }) async {
-    await ensureReady();
+    try {
+      await ensureReady();
 
-    final selfId = state.selfId;
-    if (selfId == null || selfId.isEmpty) {
-      state = state.copyWith(
+      final selfId = state.selfId;
+      if (selfId == null || selfId.isEmpty) {
+        state = state.copyWith(
+          status: CallStatus.error,
+          errorMessage: 'Could not identify the current user for calling.',
+        );
+        return false;
+      }
+
+      final hasPermission = await _requestMicrophonePermission();
+      if (!hasPermission) {
+        state = state.copyWith(
+          status: CallStatus.error,
+          errorMessage: 'Microphone permission is required for audio calls.',
+        );
+        return false;
+      }
+
+      await _disposeCallResources();
+
+      final callerName =
+          ref.read(authViewModelProvider).authEntity?.fullname ?? 'Runner';
+      final callerAvatarUrl =
+          ref.read(authViewModelProvider).authEntity?.profileUrl ?? '';
+      final callId = _uuid.v4();
+
+      state = CallState(
+        status: CallStatus.outgoing,
+        callId: callId,
+        selfId: selfId,
+        participant: CallParticipant(
+          id: friendId,
+          name: friendName,
+          avatarUrl: avatarUrl,
+        ),
+        isVideo: false,
+      );
+      await _playOutgoingRingtone();
+
+      await _createPeerConnection(isCaller: true);
+      final offer = await _peerConnection!.createOffer({
+        'offerToReceiveAudio': true,
+        'offerToReceiveVideo': false,
+      });
+      await _peerConnection!.setLocalDescription(offer);
+
+      _socketService.invite({
+        'callId': callId,
+        'callerId': selfId,
+        'callerName': callerName,
+        'callerAvatarUrl': callerAvatarUrl,
+        'receiverId': friendId,
+        'isVideo': false,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+
+      _socketService.signal({
+        'callId': callId,
+        'fromUserId': selfId,
+        'toUserId': friendId,
+        'data': {'type': 'offer', 'sdp': offer.sdp},
+      });
+      return true;
+    } catch (error) {
+      await _stopRingtone();
+      await _disposeCallResources();
+      state = CallState(
         status: CallStatus.error,
-        errorMessage: 'Could not identify the current user for calling.',
+        selfId: state.selfId,
+        errorMessage: 'Could not start the audio call. ${error.toString()}',
       );
       return false;
     }
-
-    final hasPermission = await _requestMicrophonePermission();
-    if (!hasPermission) {
-      state = state.copyWith(
-        status: CallStatus.error,
-        errorMessage: 'Microphone permission is required for audio calls.',
-      );
-      return false;
-    }
-
-    await _disposeCallResources();
-
-    final callerName =
-        ref.read(authViewModelProvider).authEntity?.fullname ?? 'Runner';
-    final callerAvatarUrl =
-        ref.read(authViewModelProvider).authEntity?.profileUrl ?? '';
-    final callId = _uuid.v4();
-
-    state = CallState(
-      status: CallStatus.outgoing,
-      callId: callId,
-      selfId: selfId,
-      participant: CallParticipant(
-        id: friendId,
-        name: friendName,
-        avatarUrl: avatarUrl,
-      ),
-      isVideo: false,
-    );
-
-    await _createPeerConnection(isCaller: true);
-    final offer = await _peerConnection!.createOffer({
-      'offerToReceiveAudio': true,
-      'offerToReceiveVideo': false,
-    });
-    await _peerConnection!.setLocalDescription(offer);
-
-    _socketService.invite({
-      'callId': callId,
-      'callerId': selfId,
-      'callerName': callerName,
-      'callerAvatarUrl': callerAvatarUrl,
-      'receiverId': friendId,
-      'isVideo': false,
-      'createdAt': DateTime.now().toIso8601String(),
-    });
-
-    _socketService.signal({
-      'callId': callId,
-      'fromUserId': selfId,
-      'toUserId': friendId,
-      'data': {'type': 'offer', 'sdp': offer.sdp},
-    });
-    return true;
   }
 
   Future<void> acceptIncomingCall() async {
@@ -131,6 +151,7 @@ class CallViewModel extends Notifier<CallState> {
 
     await _createPeerConnection(isCaller: false);
     state = state.copyWith(status: CallStatus.connecting, clearError: true);
+    await _stopRingtone();
 
     _socketService.accept({'callId': callId, 'callerId': participant.id});
   }
@@ -186,10 +207,12 @@ class CallViewModel extends Notifier<CallState> {
       ),
       isVideo: payload['isVideo'] == true,
     );
+    unawaited(_playIncomingRingtone());
   }
 
   void _handleAccepted(Map<String, dynamic> payload) {
     if (payload['callId']?.toString() != state.callId) return;
+    unawaited(_stopRingtone());
     state = state.copyWith(status: CallStatus.connecting, clearError: true);
   }
 
@@ -234,6 +257,7 @@ class CallViewModel extends Notifier<CallState> {
         'toUserId': participantId,
         'data': {'type': 'answer', 'sdp': answer.sdp},
       });
+      await _stopRingtone();
       state = state.copyWith(status: CallStatus.connecting, clearError: true);
       return;
     }
@@ -244,6 +268,7 @@ class CallViewModel extends Notifier<CallState> {
       await _peerConnection!.setRemoteDescription(
         RTCSessionDescription(sdp, 'answer'),
       );
+      await _stopRingtone();
       state = state.copyWith(status: CallStatus.connected, clearError: true);
       return;
     }
@@ -301,6 +326,7 @@ class CallViewModel extends Notifier<CallState> {
     connection.onConnectionState = (connectionState) {
       if (connectionState ==
           RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        unawaited(_stopRingtone());
         state = state.copyWith(status: CallStatus.connected, clearError: true);
       } else if (connectionState ==
               RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
@@ -324,6 +350,7 @@ class CallViewModel extends Notifier<CallState> {
   }
 
   Future<void> _endLocally({CallStatus status = CallStatus.ended}) async {
+    await _stopRingtone();
     await _disposeCallResources();
     state = CallState(
       status: status,
@@ -341,5 +368,23 @@ class CallViewModel extends Notifier<CallState> {
     await stream?.dispose();
     await _peerConnection?.close();
     _peerConnection = null;
+  }
+
+  Future<void> _playIncomingRingtone() async {
+    await _playLoopingAsset(_incomingCallSound);
+  }
+
+  Future<void> _playOutgoingRingtone() async {
+    await _playLoopingAsset(_outgoingCallSound);
+  }
+
+  Future<void> _playLoopingAsset(String assetPath) async {
+    await _ringtonePlayer.stop();
+    await _ringtonePlayer.setReleaseMode(ReleaseMode.loop);
+    await _ringtonePlayer.play(AssetSource(assetPath));
+  }
+
+  Future<void> _stopRingtone() async {
+    await _ringtonePlayer.stop();
   }
 }

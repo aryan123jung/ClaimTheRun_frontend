@@ -126,7 +126,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
-  void _startCall({required bool isVideo}) {
+  Future<void> _startCall({required bool isVideo}) async {
     if (isVideo) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Video calling will be added next.')),
@@ -135,18 +135,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     final notifier = ref.read(callViewModelProvider.notifier);
-    notifier
-        .startAudioCall(
-          friendId: widget.friendId,
-          friendName: widget.friendName,
-          avatarUrl: widget.avatarUrl,
-        )
-        .then((started) {
-          if (!mounted || !started) return;
-          Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const CallSessionScreen()));
-        });
+    final started = await notifier.startAudioCall(
+      friendId: widget.friendId,
+      friendName: widget.friendName,
+      avatarUrl: widget.avatarUrl,
+    );
+
+    if (!mounted) return;
+
+    if (!started) {
+      final message =
+          ref.read(callViewModelProvider).errorMessage ??
+          'Could not start the audio call.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CallSessionScreen()));
   }
 
   @override
