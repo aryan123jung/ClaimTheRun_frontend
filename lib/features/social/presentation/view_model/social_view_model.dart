@@ -77,11 +77,11 @@ class SocialViewModel extends Notifier<SocialState> {
     );
   }
 
-  Future<bool> createPost({required String caption, String? imageUrl}) async {
+  Future<bool> createPost({required String caption, String? imagePath}) async {
     state = state.copyWith(status: SocialStatus.submitting, clearError: true);
 
     final result = await _createPostUsecase(
-      CreatePostUsecaseParams(caption: caption, imageUrl: imageUrl),
+      CreatePostUsecaseParams(caption: caption, imagePath: imagePath),
     );
 
     return result.fold(

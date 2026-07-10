@@ -218,10 +218,13 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                     onCreatePost: () {
                       showCreatePostPopup(
                         context,
-                        onSubmit: (caption, imageUrl) async {
+                        onSubmit: (caption, imagePath) async {
                           final success = await ref
                               .read(socialViewModelProvider.notifier)
-                              .createPost(caption: caption, imageUrl: imageUrl);
+                              .createPost(
+                                caption: caption,
+                                imagePath: imagePath,
+                              );
                           if (success) return null;
                           return ref
                                   .read(socialViewModelProvider)

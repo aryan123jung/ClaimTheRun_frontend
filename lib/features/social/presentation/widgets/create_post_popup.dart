@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -7,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 Future<void> showCreatePostPopup(
   BuildContext context, {
-  required Future<String?> Function(String caption, String? imageUrl) onSubmit,
+  required Future<String?> Function(String caption, String? imagePath) onSubmit,
   VoidCallback? onSuccess,
 }) {
   return showGeneralDialog<void>(
@@ -42,7 +41,7 @@ Future<void> showCreatePostPopup(
 class _CreatePostPopupOverlay extends StatelessWidget {
   const _CreatePostPopupOverlay({required this.onSubmit, this.onSuccess});
 
-  final Future<String?> Function(String caption, String? imageUrl) onSubmit;
+  final Future<String?> Function(String caption, String? imagePath) onSubmit;
   final VoidCallback? onSuccess;
 
   @override
@@ -88,7 +87,7 @@ class CreatePostPopupCard extends StatefulWidget {
     this.onSuccess,
   });
 
-  final Future<String?> Function(String caption, String? imageUrl) onSubmit;
+  final Future<String?> Function(String caption, String? imagePath) onSubmit;
   final VoidCallback? onSuccess;
 
   @override
@@ -104,7 +103,7 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
   bool _isPickingImage = false;
   String? _errorMessage;
   Uint8List? _selectedImageBytes;
-  String? _selectedImageDataUrl;
+  String? _selectedImagePath;
 
   @override
   void dispose() {
@@ -321,7 +320,7 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
                                 onPressed: () {
                                   setState(() {
                                     _selectedImageBytes = null;
-                                    _selectedImageDataUrl = null;
+                                    _selectedImagePath = null;
                                   });
                                 },
                                 child: const Text('Remove'),
@@ -455,7 +454,7 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
       _errorMessage = null;
     });
 
-    final error = await widget.onSubmit(caption, _selectedImageDataUrl);
+    final error = await widget.onSubmit(caption, _selectedImagePath);
     if (!mounted) return;
 
     if (error == null) {
@@ -492,14 +491,11 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
       }
 
       final bytes = await file.readAsBytes();
-      final mimeType = _inferMimeType(file.path);
-      final dataUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
-
       if (!mounted) return;
       setState(() {
         _isPickingImage = false;
         _selectedImageBytes = bytes;
-        _selectedImageDataUrl = dataUrl;
+        _selectedImagePath = file.path;
       });
     } catch (_) {
       if (!mounted) return;
@@ -508,14 +504,6 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
         _errorMessage = 'Could not load the selected image.';
       });
     }
-  }
-
-  String _inferMimeType(String path) {
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.gif')) return 'image/gif';
-    return 'image/jpeg';
   }
 }
 

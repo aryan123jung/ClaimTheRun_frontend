@@ -89,13 +89,13 @@ class AuthRepository implements IAuthRepository {
   Future<Either<Failure, AuthEntity>> updateProfile({
     String? fullname,
     String? bio,
-    String? profileUrl,
+    String? profileImagePath,
   }) async {
     try {
       final user = await _authRemoteDatasource.updateProfile(
         fullname: fullname,
         bio: bio,
-        profileUrl: profileUrl,
+        profileImagePath: profileImagePath,
       );
       if (user == null) {
         return const Left(ApiFailure(message: 'Profile update failed'));

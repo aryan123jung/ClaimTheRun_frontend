@@ -7,7 +7,7 @@ abstract interface class ISocialRepository {
   Future<Either<Failure, List<PostEntity>>> fetchMyPosts();
   Future<Either<Failure, PostEntity>> createPost({
     required String caption,
-    String? imageUrl,
+    String? imagePath,
   });
   Future<Either<Failure, PostEntity>> toggleLike({required String postId});
 }

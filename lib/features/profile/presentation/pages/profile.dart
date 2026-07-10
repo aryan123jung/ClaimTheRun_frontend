@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:clain_the_run/app/theme_provider.dart';
@@ -319,9 +318,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final imagePicker = ImagePicker();
     final currentFullname = user?.fullname.trim() ?? '';
     final currentBio = user?.bio?.trim() ?? '';
-    final currentProfileUrl = user?.profileUrl;
-    Uint8List? selectedImageBytes = _decodeProfileImage(user?.profileUrl);
-    String? selectedImageDataUrl = user?.profileUrl;
+    Uint8List? selectedImageBytes;
+    String? selectedImagePath;
     bool isSaving = false;
     bool isPickingImage = false;
 
@@ -363,15 +361,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   }
 
                   final bytes = await file.readAsBytes();
-                  final mimeType = _inferMimeType(file.path);
-                  final dataUrl =
-                      'data:$mimeType;base64,${base64Encode(bytes)}';
-
                   if (!mounted) return;
                   setModalState(() {
                     isPickingImage = false;
                     selectedImageBytes = bytes;
-                    selectedImageDataUrl = dataUrl;
+                    selectedImagePath = file.path;
                   });
                 } catch (_) {
                   if (!mounted) return;
@@ -397,11 +391,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 final bio = rawBio.isEmpty || rawBio == currentBio
                     ? null
                     : rawBio;
-                final profileUrl = selectedImageDataUrl == currentProfileUrl
-                    ? null
-                    : selectedImageDataUrl;
+                final profileImagePath = selectedImagePath;
 
-                if (fullname == null && bio == null && profileUrl == null) {
+                if (fullname == null &&
+                    bio == null &&
+                    profileImagePath == null) {
                   messenger.showSnackBar(
                     const SnackBar(
                       content: Text(
@@ -421,7 +415,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     .updateProfile(
                       fullname: fullname,
                       bio: bio,
-                      profileUrl: profileUrl,
+                      profileImagePath: profileImagePath,
                     );
 
                 if (!mounted) return;
@@ -522,36 +516,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     bioController.dispose();
   }
 
-  Uint8List? _decodeProfileImage(String? imageValue) {
-    if (imageValue == null ||
-        imageValue.isEmpty ||
-        !imageValue.startsWith('data:')) {
-      return null;
-    }
-
-    try {
-      final base64Part = imageValue.split(',').last;
-      return base64Decode(base64Part);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String _inferMimeType(String path) {
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.gif')) return 'image/gif';
-    return 'image/jpeg';
-  }
-
   void _openCreatePostPopup() {
     showCreatePostPopup(
       context,
-      onSubmit: (caption, imageUrl) async {
+      onSubmit: (caption, imagePath) async {
         final success = await ref
             .read(socialViewModelProvider.notifier)
-            .createPost(caption: caption, imageUrl: imageUrl);
+            .createPost(caption: caption, imagePath: imagePath);
         if (success) return null;
         return ref.read(socialViewModelProvider).errorMessage ??
             'Unable to create post';

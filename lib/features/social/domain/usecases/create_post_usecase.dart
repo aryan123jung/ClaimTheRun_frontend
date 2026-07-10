@@ -22,17 +22,17 @@ class CreatePostUsecase
   Future<Either<Failure, PostEntity>> call(CreatePostUsecaseParams params) {
     return _repository.createPost(
       caption: params.caption,
-      imageUrl: params.imageUrl,
+      imagePath: params.imagePath,
     );
   }
 }
 
 class CreatePostUsecaseParams extends Equatable {
-  const CreatePostUsecaseParams({required this.caption, this.imageUrl});
+  const CreatePostUsecaseParams({required this.caption, this.imagePath});
 
   final String caption;
-  final String? imageUrl;
+  final String? imagePath;
 
   @override
-  List<Object?> get props => [caption, imageUrl];
+  List<Object?> get props => [caption, imagePath];
 }

@@ -55,7 +55,7 @@ class ApiEndpoints {
     if (override != null) {
       return override;
     }
-    return "http://${_resolveHost()}:$port/api";
+    return candidateBaseUrls.first;
   }
 
   static String get uploadBaseUrl {
@@ -63,7 +63,29 @@ class ApiEndpoints {
     if (override != null) {
       return override;
     }
-    return "http://${_resolveHost()}:$port";
+    return candidateUploadBaseUrls.first;
+  }
+
+  static List<String> get candidateBaseUrls {
+    final override = _normalizeAbsoluteUrl(apiBaseUrlOverride);
+    if (override != null) {
+      return <String>[override];
+    }
+
+    return _uniquePreservingOrder(
+      _candidateHosts().map((host) => 'http://$host:$port/api'),
+    );
+  }
+
+  static List<String> get candidateUploadBaseUrls {
+    final override = _normalizeAbsoluteUrl(apiUploadBaseUrlOverride);
+    if (override != null) {
+      return <String>[override];
+    }
+
+    return _uniquePreservingOrder(
+      _candidateHosts().map((host) => 'http://$host:$port'),
+    );
   }
 
   static void debugPrintResolvedEndpoints() {
@@ -74,33 +96,47 @@ class ApiEndpoints {
     print('ApiEndpoints.uploadBaseUrl=$uploadBaseUrl');
   }
 
-  static String _resolveHost() {
+  static Iterable<String> _candidateHosts() sync* {
     // Web always talks to localhost in local setup.
-    if (kIsWeb) return 'localhost';
+    if (kIsWeb) {
+      yield 'localhost';
+      return;
+    }
 
     // Global override first.
-    if (apiHost.trim().isNotEmpty) return apiHost.trim();
-
-    // Platform-specific overrides.
-    if (Platform.isAndroid && apiHostAndroid.trim().isNotEmpty) {
-      return apiHostAndroid.trim();
-    }
-    if (Platform.isIOS && apiHostIos.trim().isNotEmpty) {
-      return apiHostIos.trim();
+    final globalHost = apiHost.trim();
+    if (globalHost.isNotEmpty) {
+      yield globalHost;
+      return;
     }
 
-    // Sensible platform defaults:
-    // - Android emulator reaches host via 10.0.2.2
-    // - iOS simulator reaches host via localhost
-    // - physical devices should use API_HOST / API_HOST_ANDROID / API_HOST_IOS
+    // Platform-specific overrides next.
     if (Platform.isAndroid) {
-      return '10.0.2.2';
-    }
-    if (Platform.isIOS) {
-      return 'localhost';
+      final androidOverride = apiHostAndroid.trim();
+      if (androidOverride.isNotEmpty) {
+        yield androidOverride;
+        return;
+      }
+
+      yield '10.0.2.2';
+      yield computerIpAddress;
+      return;
     }
 
-    return computerIpAddress;
+    if (Platform.isIOS) {
+      final iosOverride = apiHostIos.trim();
+      if (iosOverride.isNotEmpty) {
+        yield iosOverride;
+        return;
+      }
+
+      yield 'localhost';
+      yield computerIpAddress;
+      return;
+    }
+
+    yield computerIpAddress;
+    yield 'localhost';
   }
 
   static String? _normalizeAbsoluteUrl(String raw) {
@@ -120,6 +156,19 @@ class ApiEndpoints {
       return null;
     }
     return repaired;
+  }
+
+  static List<String> _uniquePreservingOrder(Iterable<String> values) {
+    final seen = <String>{};
+    final unique = <String>[];
+
+    for (final value in values) {
+      if (seen.add(value)) {
+        unique.add(value);
+      }
+    }
+
+    return unique;
   }
 
   static String uploadUrl(String relativePath) {

@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 
 class ProfileHeaderCard extends StatelessWidget {
@@ -160,24 +157,7 @@ class ProfileHeaderCard extends StatelessWidget {
   ImageProvider<Object>? _buildAvatarProvider(String value) {
     if (value.isEmpty) return null;
 
-    if (value.startsWith('data:')) {
-      final bytes = _decodeDataUrl(value);
-      if (bytes != null) {
-        return MemoryImage(bytes);
-      }
-      return null;
-    }
-
     return NetworkImage(value);
-  }
-
-  Uint8List? _decodeDataUrl(String dataUrl) {
-    try {
-      final base64Part = dataUrl.split(',').last;
-      return base64Decode(base64Part);
-    } catch (_) {
-      return null;
-    }
   }
 }
 

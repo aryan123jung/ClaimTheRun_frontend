@@ -53,14 +53,18 @@ class GetCurrentUserUsecase implements UsecaseWithoutParams<AuthEntity> {
 }
 
 class UpdateProfileUsecaseParams extends Equatable {
-  const UpdateProfileUsecaseParams({this.fullname, this.bio, this.profileUrl});
+  const UpdateProfileUsecaseParams({
+    this.fullname,
+    this.bio,
+    this.profileImagePath,
+  });
 
   final String? fullname;
   final String? bio;
-  final String? profileUrl;
+  final String? profileImagePath;
 
   @override
-  List<Object?> get props => [fullname, bio, profileUrl];
+  List<Object?> get props => [fullname, bio, profileImagePath];
 }
 
 final updateProfileUsecaseProvider = Provider<UpdateProfileUsecase>((ref) {
@@ -79,7 +83,7 @@ class UpdateProfileUsecase
     return _authRepository.updateProfile(
       fullname: params.fullname,
       bio: params.bio,
-      profileUrl: params.profileUrl,
+      profileImagePath: params.profileImagePath,
     );
   }
 }

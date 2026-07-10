@@ -22,12 +22,12 @@ class SocialRepository implements ISocialRepository {
   @override
   Future<Either<Failure, PostEntity>> createPost({
     required String caption,
-    String? imageUrl,
+    String? imagePath,
   }) async {
     try {
       final post = await _socialDatasource.createPost(
         caption: caption,
-        imageUrl: imageUrl,
+        imagePath: imagePath,
       );
       if (post == null) {
         return const Left(ApiFailure(message: 'Unable to create post'));

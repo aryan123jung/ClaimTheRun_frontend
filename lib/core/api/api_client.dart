@@ -70,7 +70,15 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.get(path, queryParameters: queryParameters, options: options);
+    return _sendWithFallback(
+      path: path,
+      options: options,
+      request: (resolvedPath) => _dio.get(
+        resolvedPath,
+        queryParameters: queryParameters,
+        options: options,
+      ),
+    );
   }
 
   // POST request
@@ -80,11 +88,15 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.post(
-      path,
-      data: data,
-      queryParameters: queryParameters,
+    return _sendWithFallback(
+      path: path,
       options: options,
+      request: (resolvedPath) => _dio.post(
+        resolvedPath,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      ),
     );
   }
 
@@ -95,11 +107,15 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.put(
-      path,
-      data: data,
-      queryParameters: queryParameters,
+    return _sendWithFallback(
+      path: path,
       options: options,
+      request: (resolvedPath) => _dio.put(
+        resolvedPath,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      ),
     );
   }
 
@@ -110,11 +126,15 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.patch(
-      path,
-      data: data,
-      queryParameters: queryParameters,
+    return _sendWithFallback(
+      path: path,
       options: options,
+      request: (resolvedPath) => _dio.patch(
+        resolvedPath,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      ),
     );
   }
 
@@ -125,11 +145,15 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return _dio.delete(
-      path,
-      data: data,
-      queryParameters: queryParameters,
+    return _sendWithFallback(
+      path: path,
       options: options,
+      request: (resolvedPath) => _dio.delete(
+        resolvedPath,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      ),
     );
   }
 
@@ -140,12 +164,84 @@ class ApiClient {
     Options? options,
     ProgressCallback? onSendProgress,
   }) async {
-    return _dio.post(
-      path,
-      data: formData,
+    return _sendWithFallback(
+      path: path,
       options: options,
-      onSendProgress: onSendProgress,
+      request: (resolvedPath) => _dio.post(
+        resolvedPath,
+        data: formData,
+        options: options,
+        onSendProgress: onSendProgress,
+      ),
     );
+  }
+
+  Future<Response> _sendWithFallback({
+    required String path,
+    required Future<Response> Function(String resolvedPath) request,
+    Options? options,
+  }) async {
+    final candidates = _candidateUrlsFor(path, options);
+    DioException? lastError;
+
+    for (final candidate in candidates) {
+      try {
+        return await request(candidate);
+      } on DioException catch (error) {
+        if (!_shouldTryAnotherBaseUrl(error) || candidate == candidates.last) {
+          rethrow;
+        }
+        lastError = error;
+      }
+    }
+
+    throw lastError ??
+        DioException(
+          requestOptions: RequestOptions(path: path),
+          message: 'Request failed before any API host candidate could run.',
+        );
+  }
+
+  List<String> _candidateUrlsFor(String path, Options? options) {
+    if (_isAbsoluteUrl(path)) {
+      return <String>[path];
+    }
+
+    final isUploadRequest = _isUploadRequest(path, options);
+    final baseUrls = isUploadRequest
+        ? ApiEndpoints.candidateUploadBaseUrls
+        : ApiEndpoints.candidateBaseUrls;
+
+    return baseUrls.map((baseUrl) => '$baseUrl$path').toList();
+  }
+
+  bool _isUploadRequest(String path, Options? options) {
+    if (path.startsWith('/uploads/') || path.startsWith('uploads/')) {
+      return true;
+    }
+
+    final contentType =
+        options?.contentType?.toString().toLowerCase() ??
+        options?.headers?['Content-Type']?.toString().toLowerCase();
+    return contentType?.contains('multipart/form-data') == true;
+  }
+
+  bool _isAbsoluteUrl(String path) {
+    final uri = Uri.tryParse(path);
+    return uri != null && uri.hasScheme && uri.host.isNotEmpty;
+  }
+
+  bool _shouldTryAnotherBaseUrl(DioException error) {
+    if (error.type == DioExceptionType.connectionError ||
+        error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout) {
+      return true;
+    }
+
+    final message = error.message?.toLowerCase() ?? '';
+    return message.contains('connection refused') ||
+        message.contains('failed host lookup');
   }
 }
 
@@ -159,7 +255,16 @@ class _AuthInterceptor extends Interceptor {
   ];
 
   bool _isPublicEndpoint(String path) {
-    return _publicEndpoints.any((e) => path.startsWith(e));
+    final normalizedPath = _normalizePath(path);
+    return _publicEndpoints.any((e) => normalizedPath.startsWith(e));
+  }
+
+  String _normalizePath(String path) {
+    final uri = Uri.tryParse(path);
+    if (uri != null && uri.hasScheme && uri.path.isNotEmpty) {
+      return uri.path;
+    }
+    return path;
   }
 
   @override

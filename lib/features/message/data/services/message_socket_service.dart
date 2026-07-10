@@ -19,6 +19,7 @@ class MessageSocketService {
   io.Socket? _socket;
   void Function(MessageEntity message)? _onMessage;
   bool _isConnecting = false;
+  int _socketUrlIndex = 0;
 
   Future<void> connect() async {
     if (_socket != null) {
@@ -36,8 +37,11 @@ class MessageSocketService {
       return;
     }
 
+    final socketBaseUrls = ApiEndpoints.candidateUploadBaseUrls;
+    final socketBaseUrl =
+        socketBaseUrls[_socketUrlIndex.clamp(0, socketBaseUrls.length - 1)];
     final socket = io.io(
-      ApiEndpoints.uploadBaseUrl,
+      socketBaseUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()
@@ -51,10 +55,12 @@ class MessageSocketService {
     });
 
     socket.onConnectError((_) {
+      _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
     });
 
     socket.onError((_) {
+      _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
     });
 
@@ -113,6 +119,7 @@ class MessageSocketService {
     _socket?.dispose();
     _socket = null;
     _isConnecting = false;
+    _socketUrlIndex = 0;
     _pendingConversationJoins.clear();
   }
 
@@ -123,5 +130,16 @@ class MessageSocketService {
     for (final conversationId in _pendingConversationJoins) {
       socket!.emit('conversation:join', conversationId);
     }
+  }
+
+  void _tryNextSocketHost(List<String> socketBaseUrls) {
+    if (_socketUrlIndex >= socketBaseUrls.length - 1) {
+      return;
+    }
+
+    _socket?.dispose();
+    _socket = null;
+    _socketUrlIndex += 1;
+    connect();
   }
 }

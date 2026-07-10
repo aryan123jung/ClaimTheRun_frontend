@@ -9,6 +9,6 @@ abstract interface class IAuthRepository {
   Future<Either<Failure, AuthEntity>> updateProfile({
     String? fullname,
     String? bio,
-    String? profileUrl,
+    String? profileImagePath,
   });
 }

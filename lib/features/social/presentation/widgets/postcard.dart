@@ -1,6 +1,4 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
+import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:flutter/material.dart';
 
 class PostModel {
@@ -204,17 +202,7 @@ class PostCard extends StatelessWidget {
 
   ImageProvider<Object>? _buildImageProvider(String imageValue) {
     if (imageValue.isEmpty) return null;
-
-    if (imageValue.startsWith('data:')) {
-      try {
-        final base64Part = imageValue.split(',').last;
-        return MemoryImage(base64Decode(base64Part));
-      } catch (_) {
-        return null;
-      }
-    }
-
-    return NetworkImage(imageValue);
+    return NetworkImage(ApiEndpoints.uploadUrl(imageValue));
   }
 }
 
@@ -225,20 +213,11 @@ class _PostImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (imageUrl.startsWith('data:image/')) {
-      return Image.memory(
-        _decodeDataImage(imageUrl),
-        fit: BoxFit.cover,
-        width: double.infinity,
-      );
-    }
-
-    return Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity);
-  }
-
-  Uint8List _decodeDataImage(String dataUrl) {
-    final base64Part = dataUrl.split(',').last;
-    return base64Decode(base64Part);
+    return Image.network(
+      ApiEndpoints.uploadUrl(imageUrl),
+      fit: BoxFit.cover,
+      width: double.infinity,
+    );
   }
 }
 

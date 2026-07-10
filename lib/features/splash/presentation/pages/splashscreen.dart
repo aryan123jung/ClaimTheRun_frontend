@@ -1,51 +1,25 @@
 import 'package:clain_the_run/core/constants/app_asset_paths.dart';
 import 'package:clain_the_run/features/onboardings/presentation/pages/onboardingone.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:clain_the_run/features/splash/presentation/view_model/splash_view_model.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerWidget {
   const SplashScreen({super.key, required this.title});
 
   final String title;
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController controller;
-
-  @override
-  void initState() {
-    super.initState();
-
-    controller =
-        AnimationController(vsync: this, duration: const Duration(seconds: 2))
-          ..addListener(() {
-            setState(() {});
-          });
-
-    controller.forward();
-
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        // MaterialPageRoute(builder: (context) => const LoginScreen()),
-        MaterialPageRoute(builder: (context) => const OnboardingOne()),
-      );
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(splashReadyProvider, (_, next) {
+      next.whenData((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const OnboardingOne()),
+        );
+      });
     });
-  }
 
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     const double progressBarLeft = 80;
     const double progressBarRight = 80;
     const double progressBarBottom = 80;
@@ -74,15 +48,20 @@ class _SplashScreenState extends State<SplashScreen>
               child: SizedBox(
                 // Change the height to make the loading bar thicker or thinner.
                 height: progressBarHeight,
-                child: LinearProgressIndicator(
-                  value: controller.value,
-                  semanticsLabel: 'Loading',
-                  // Change this color for the unfilled track.
-                  backgroundColor: progressTrackColor,
-                  // Change this color for the filled progress.
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    progressColor,
-                  ),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: 1),
+                  duration: const Duration(seconds: 2),
+                  builder: (context, value, _) {
+                    return LinearProgressIndicator(
+                      value: value,
+                      semanticsLabel: 'Loading',
+                      backgroundColor: progressTrackColor,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        progressColor,
+                      ),
+                    );
+                  },
+                  child: const SizedBox.shrink(),
                 ),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:clain_the_run/core/api/api_client.dart';
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/auth/data/datasources/auth_datasource.dart';
 import 'package:clain_the_run/features/auth/data/models/auth_api_model.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,7 +70,7 @@ class AuthRemoteDatasource implements IAuthRemoteDatasource {
   Future<AuthApiModel?> updateProfile({
     String? fullname,
     String? bio,
-    String? profileUrl,
+    String? profileImagePath,
   }) async {
     final payload = <String, dynamic>{};
     if (fullname != null) {
@@ -78,11 +79,18 @@ class AuthRemoteDatasource implements IAuthRemoteDatasource {
     if (bio != null) {
       payload['bio'] = bio;
     }
-    if (profileUrl != null) {
-      payload['profileUrl'] = profileUrl;
+    if (profileImagePath != null && profileImagePath.isNotEmpty) {
+      payload['profileImage'] = await MultipartFile.fromFile(
+        profileImagePath,
+        filename: profileImagePath.split('/').last,
+      );
     }
 
-    final response = await _apiClient.put(ApiEndpoints.authMe, data: payload);
+    final response = await _apiClient.put(
+      ApiEndpoints.authMe,
+      data: FormData.fromMap(payload),
+      options: Options(contentType: 'multipart/form-data'),
+    );
 
     if (response.data['success'] == true) {
       final data = Map<String, dynamic>.from(response.data['data'] as Map);

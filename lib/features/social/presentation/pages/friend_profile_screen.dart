@@ -1,11 +1,13 @@
 import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profilestattile.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/statsheet.dart';
+import 'package:clain_the_run/features/social/presentation/view_model/friend_profile_view_model.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class FriendProfileScreen extends StatefulWidget {
+class FriendProfileScreen extends ConsumerStatefulWidget {
   const FriendProfileScreen({
     super.key,
     required this.friend,
@@ -26,21 +28,39 @@ class FriendProfileScreen extends StatefulWidget {
   final Future<String?> Function(String currentLabel)? onFriendAction;
 
   @override
-  State<FriendProfileScreen> createState() => _FriendProfileScreenState();
+  ConsumerState<FriendProfileScreen> createState() =>
+      _FriendProfileScreenState();
 }
 
-class _FriendProfileScreenState extends State<FriendProfileScreen> {
-  String? _actionLabel;
-  bool _isSubmitting = false;
+class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
+  late final FriendProfileViewModel _notifier;
 
   @override
   void initState() {
     super.initState();
-    _actionLabel = widget.friendActionLabel;
+    _notifier = ref.read(friendProfileViewModelProvider.notifier);
+    Future<void>.microtask(_initializeProvider);
+  }
+
+  @override
+  void didUpdateWidget(covariant FriendProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.friend.id != widget.friend.id ||
+        oldWidget.friendActionLabel != widget.friendActionLabel) {
+      Future<void>.microtask(_initializeProvider);
+    }
+  }
+
+  void _initializeProvider() {
+    _notifier.ensureInitialized(
+      friendId: widget.friend.id,
+      actionLabel: widget.friendActionLabel,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(friendProfileViewModelProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final stats = [
       ProfileStatModel(
@@ -115,7 +135,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
             ),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: _refreshProfile,
+                onRefresh: _notifier.refresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
@@ -125,11 +145,20 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                       bio: widget.bio,
                       totalRuns: widget.totalRuns,
                       postCount: widget.postCount,
-                      actionLabel: _actionLabel,
-                      isSubmitting: _isSubmitting,
-                      onFriendAction: _actionLabel == null
+                      actionLabel: state.actionLabel,
+                      isSubmitting: state.isSubmitting,
+                      onFriendAction:
+                          state.actionLabel == null ||
+                              widget.onFriendAction == null
                           ? null
-                          : _handleFriendAction,
+                          : () async {
+                              final successMessage = await _notifier
+                                  .submitAction(widget.onFriendAction!);
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(successMessage)),
+                              );
+                            },
                     ),
                     const SizedBox(height: 22),
                     Row(
@@ -205,58 +234,6 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _handleFriendAction() async {
-    final label = _actionLabel;
-    final handler = widget.onFriendAction;
-    if (label == null || handler == null || _isSubmitting) return;
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    final message = await handler(label);
-    if (!mounted) return;
-
-    setState(() {
-      _isSubmitting = false;
-      _actionLabel = _nextActionLabel(label);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message ?? _defaultSuccessMessage(label))),
-    );
-  }
-
-  String? _nextActionLabel(String currentLabel) {
-    switch (currentLabel) {
-      case 'Remove Friend':
-        return 'Add Friend';
-      case 'Add Friend':
-        return 'Cancel Request';
-      case 'Cancel Request':
-        return 'Add Friend';
-      default:
-        return currentLabel;
-    }
-  }
-
-  String _defaultSuccessMessage(String currentLabel) {
-    switch (currentLabel) {
-      case 'Remove Friend':
-        return 'Friend removed successfully.';
-      case 'Add Friend':
-        return 'Friend request sent.';
-      case 'Cancel Request':
-        return 'Friend request cancelled.';
-      default:
-        return 'Updated successfully.';
-    }
-  }
-
-  Future<void> _refreshProfile() async {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:clain_the_run/core/api/api_client.dart';
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/social/data/datasources/social_datasource.dart';
 import 'package:clain_the_run/features/social/data/models/post_api_model.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final socialRemoteDatasourceProvider = Provider<ISocialDatasource>((ref) {
@@ -17,14 +18,20 @@ class SocialRemoteDatasource implements ISocialDatasource {
   @override
   Future<PostApiModel?> createPost({
     required String caption,
-    String? imageUrl,
+    String? imagePath,
   }) async {
+    final payload = <String, dynamic>{'caption': caption};
+    if (imagePath != null && imagePath.isNotEmpty) {
+      payload['postImage'] = await MultipartFile.fromFile(
+        imagePath,
+        filename: imagePath.split('/').last,
+      );
+    }
+
     final response = await _apiClient.post(
       ApiEndpoints.posts,
-      data: {
-        'caption': caption,
-        if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
-      },
+      data: FormData.fromMap(payload),
+      options: Options(contentType: 'multipart/form-data'),
     );
 
     if (response.data['success'] == true) {

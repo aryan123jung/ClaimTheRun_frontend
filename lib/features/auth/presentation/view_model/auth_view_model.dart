@@ -96,14 +96,14 @@ class AuthViewModel extends Notifier<AuthState> {
   Future<String?> updateProfile({
     String? fullname,
     String? bio,
-    String? profileUrl,
+    String? profileImagePath,
   }) async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
     final result = await _updateProfileUsecase(
       UpdateProfileUsecaseParams(
         fullname: fullname,
         bio: bio,
-        profileUrl: profileUrl,
+        profileImagePath: profileImagePath,
       ),
     );
 
