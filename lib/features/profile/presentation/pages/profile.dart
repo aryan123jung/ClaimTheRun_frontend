@@ -313,196 +313,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _openEditProfileSheet() async {
     final user = ref.read(authViewModelProvider).authEntity;
-    final nameController = TextEditingController(text: user?.fullname ?? '');
-    final bioController = TextEditingController(text: user?.bio ?? '');
-    final imagePicker = ImagePicker();
-    final currentFullname = user?.fullname.trim() ?? '';
-    final currentBio = user?.bio?.trim() ?? '';
-    Uint8List? selectedImageBytes;
-    String? selectedImagePath;
-    bool isSaving = false;
-    bool isPickingImage = false;
-
     final didSave = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            top: 24,
-          ),
-          child: StatefulBuilder(
-            builder: (context, setModalState) {
-              final messenger = ScaffoldMessenger.of(this.context);
-
-              Future<void> pickImage() async {
-                setModalState(() {
-                  isPickingImage = true;
-                });
-
-                try {
-                  final file = await imagePicker.pickImage(
-                    source: ImageSource.gallery,
-                    imageQuality: 60,
-                    maxWidth: 1080,
-                  );
-
-                  if (file == null) {
-                    if (!mounted) return;
-                    setModalState(() {
-                      isPickingImage = false;
-                    });
-                    return;
-                  }
-
-                  final bytes = await file.readAsBytes();
-                  if (!mounted) return;
-                  setModalState(() {
-                    isPickingImage = false;
-                    selectedImageBytes = bytes;
-                    selectedImagePath = file.path;
-                  });
-                } catch (_) {
-                  if (!mounted) return;
-                  setModalState(() {
-                    isPickingImage = false;
-                  });
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Could not load the selected image.'),
-                    ),
-                  );
-                }
-              }
-
-              Future<void> submit() async {
-                final navigator = Navigator.of(context);
-                final rawFullname = nameController.text.trim();
-                final rawBio = bioController.text.trim();
-                final fullname =
-                    rawFullname.isEmpty || rawFullname == currentFullname
-                    ? null
-                    : rawFullname;
-                final bio = rawBio.isEmpty || rawBio == currentBio
-                    ? null
-                    : rawBio;
-                final profileImagePath = selectedImagePath;
-
-                if (fullname == null &&
-                    bio == null &&
-                    profileImagePath == null) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Pick at least one profile field to update.',
-                      ),
-                    ),
-                  );
-                  return;
-                }
-
-                setModalState(() {
-                  isSaving = true;
-                });
-
-                final message = await ref
-                    .read(authViewModelProvider.notifier)
-                    .updateProfile(
-                      fullname: fullname,
-                      bio: bio,
-                      profileImagePath: profileImagePath,
-                    );
-
-                if (!mounted) return;
-
-                setModalState(() {
-                  isSaving = false;
-                });
-
-                if (message != null) {
-                  messenger.showSnackBar(SnackBar(content: Text(message)));
-                  return;
-                }
-
-                navigator.pop(true);
-              }
-
-              return Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF111C26) : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Edit Profile',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF111111),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Update any profile field you want. Everything here is optional.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark
-                            ? const Color(0xFF9BA8B4)
-                            : const Color(0xFF6E6E6E),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _ProfileImagePickerCard(
-                      imageBytes: selectedImageBytes,
-                      imageUrl: selectedImageBytes == null
-                          ? user?.profileUrl
-                          : null,
-                      isPickingImage: isPickingImage,
-                      onPickImage: isSaving || isPickingImage
-                          ? null
-                          : pickImage,
-                    ),
-                    const SizedBox(height: 12),
-                    _ProfileInputField(
-                      controller: nameController,
-                      label: 'Full Name',
-                      hintText: 'Leave blank to keep current name',
-                    ),
-                    const SizedBox(height: 12),
-                    _ProfileInputField(
-                      controller: bioController,
-                      label: 'Bio',
-                      hintText: 'Leave blank to keep current bio',
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isSaving ? null : submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF72B63E),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: Text(isSaving ? 'Saving...' : 'Save Changes'),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
+        return _EditProfileSheet(user: user);
       },
     );
 
@@ -511,9 +327,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         const SnackBar(content: Text('Profile updated successfully.')),
       );
     }
-
-    nameController.dispose();
-    bioController.dispose();
   }
 
   void _openCreatePostPopup() {
@@ -532,6 +345,210 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SnackBar(content: Text('Post uploaded successfully.')),
         );
       },
+    );
+  }
+}
+
+class _EditProfileSheet extends ConsumerStatefulWidget {
+  const _EditProfileSheet({this.user});
+
+  final dynamic user;
+
+  @override
+  ConsumerState<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _bioController;
+  final ImagePicker _imagePicker = ImagePicker();
+  Uint8List? _selectedImageBytes;
+  String? _selectedImagePath;
+  bool _isSaving = false;
+  bool _isPickingImage = false;
+
+  String get _currentFullname => widget.user?.fullname.trim() ?? '';
+  String get _currentBio => widget.user?.bio?.trim() ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.user?.fullname ?? '');
+    _bioController = TextEditingController(text: widget.user?.bio ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _bioController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    setState(() {
+      _isPickingImage = true;
+    });
+
+    try {
+      final file = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 60,
+        maxWidth: 1080,
+      );
+
+      if (!mounted) return;
+
+      if (file == null) {
+        setState(() {
+          _isPickingImage = false;
+        });
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+
+      setState(() {
+        _isPickingImage = false;
+        _selectedImageBytes = bytes;
+        _selectedImagePath = file.path;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isPickingImage = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not load the selected image.')),
+      );
+    }
+  }
+
+  Future<void> _submit() async {
+    final rawFullname = _nameController.text.trim();
+    final rawBio = _bioController.text.trim();
+    final fullname = rawFullname.isEmpty || rawFullname == _currentFullname
+        ? null
+        : rawFullname;
+    final bio = rawBio.isEmpty || rawBio == _currentBio ? null : rawBio;
+    final profileImagePath = _selectedImagePath;
+
+    if (fullname == null && bio == null && profileImagePath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pick at least one profile field to update.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    final message = await ref
+        .read(authViewModelProvider.notifier)
+        .updateProfile(
+          fullname: fullname,
+          bio: bio,
+          profileImagePath: profileImagePath,
+        );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSaving = false;
+    });
+
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        top: 24,
+      ),
+      child: SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF111C26) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Edit Profile',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF111111),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Update any profile field you want. Everything here is optional.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF6E6E6E),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ProfileImagePickerCard(
+                imageBytes: _selectedImageBytes,
+                imageUrl: _selectedImageBytes == null
+                    ? widget.user?.profileUrl
+                    : null,
+                isPickingImage: _isPickingImage,
+                onPickImage: _isSaving || _isPickingImage ? null : _pickImage,
+              ),
+              const SizedBox(height: 12),
+              _ProfileInputField(
+                controller: _nameController,
+                label: 'Full Name',
+                hintText: 'Leave blank to keep current name',
+              ),
+              const SizedBox(height: 12),
+              _ProfileInputField(
+                controller: _bioController,
+                label: 'Bio',
+                hintText: 'Leave blank to keep current bio',
+                maxLines: 3,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF72B63E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(_isSaving ? 'Saving...' : 'Save Changes'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
