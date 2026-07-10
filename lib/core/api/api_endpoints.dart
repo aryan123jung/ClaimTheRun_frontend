@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 class ApiEndpoints {
   ApiEndpoints._();
   static const int port = 6060;
+  static String? _resolvedApiBaseUrl;
+  static String? _resolvedUploadBaseUrl;
 
   // Runtime overrides:
   // 1) Physical devices (Android + iOS):
@@ -51,6 +53,10 @@ class ApiEndpoints {
   //   return "http://localhost:$port/api";
   // }
   static String get baseUrl {
+    final resolved = _resolvedApiBaseUrl;
+    if (resolved != null) {
+      return resolved;
+    }
     final override = _normalizeAbsoluteUrl(apiBaseUrlOverride);
     if (override != null) {
       return override;
@@ -59,6 +65,10 @@ class ApiEndpoints {
   }
 
   static String get uploadBaseUrl {
+    final resolved = _resolvedUploadBaseUrl;
+    if (resolved != null) {
+      return resolved;
+    }
     final override = _normalizeAbsoluteUrl(apiUploadBaseUrlOverride);
     if (override != null) {
       return override;
@@ -94,6 +104,28 @@ class ApiEndpoints {
     print('ApiEndpoints.baseUrl=$baseUrl');
     // ignore: avoid_print
     print('ApiEndpoints.uploadBaseUrl=$uploadBaseUrl');
+  }
+
+  static void rememberResolvedApiUrl(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || uri.host.isEmpty) {
+      return;
+    }
+
+    final apiBase = Uri(
+      scheme: uri.scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+      path: '/api',
+    ).toString();
+    final uploadBase = Uri(
+      scheme: uri.scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+    ).toString();
+
+    _resolvedApiBaseUrl = apiBase;
+    _resolvedUploadBaseUrl = uploadBase;
   }
 
   static Iterable<String> _candidateHosts() sync* {

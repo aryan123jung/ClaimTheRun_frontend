@@ -186,7 +186,9 @@ class ApiClient {
 
     for (final candidate in candidates) {
       try {
-        return await request(candidate);
+        final response = await request(candidate);
+        ApiEndpoints.rememberResolvedApiUrl(candidate);
+        return response;
       } on DioException catch (error) {
         if (!_shouldTryAnotherBaseUrl(error) || candidate == candidates.last) {
           rethrow;
