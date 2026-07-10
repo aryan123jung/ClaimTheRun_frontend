@@ -71,7 +71,7 @@ class MessageViewModel extends Notifier<MessageState> {
         .where((item) => item.otherUser.id == friend.id)
         .firstOrNull;
     if (existingConversation != null) {
-      await ensureConversationJoined(existingConversation.id);
+      ensureConversationJoined(existingConversation.id);
       state = state.copyWith(
         status: MessageStatus.loaded,
         activeConversation: existingConversation,
@@ -107,7 +107,7 @@ class MessageViewModel extends Notifier<MessageState> {
   }
 
   Future<void> ensureConversationJoined(String conversationId) async {
-    await _messageSocketService.joinConversation(conversationId);
+    _messageSocketService.joinConversation(conversationId);
   }
 
   Future<void> loadMessages(String conversationId, {bool force = false}) async {

@@ -29,7 +29,7 @@ class ApiEndpoints {
   static const String apiHostIos = String.fromEnvironment('API_HOST_IOS');
 
   // static const String computerIpAddress = "192.168.1.65";
-  static const String computerIpAddress = "192.168.1.68";
+  static const String computerIpAddress = "192.168.1.73";
 
   // static String get baseUrl {
   //   if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
@@ -89,8 +89,17 @@ class ApiEndpoints {
       return apiHostIos.trim();
     }
 
-    // Physical-device-first default.
-    // This avoids "localhost connection refused" on real phone.
+    // Sensible platform defaults:
+    // - Android emulator reaches host via 10.0.2.2
+    // - iOS simulator reaches host via localhost
+    // - physical devices should use API_HOST / API_HOST_ANDROID / API_HOST_IOS
+    if (Platform.isAndroid) {
+      return '10.0.2.2';
+    }
+    if (Platform.isIOS) {
+      return 'localhost';
+    }
+
     return computerIpAddress;
   }
 

@@ -15,14 +15,26 @@ class MessageSocketService {
   static const _tokenKey = 'auth_token';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final Set<String> _pendingConversationJoins = <String>{};
   io.Socket? _socket;
   void Function(MessageEntity message)? _onMessage;
+  bool _isConnecting = false;
 
   Future<void> connect() async {
-    if (_socket?.connected == true) return;
+    if (_socket != null) {
+      if (_socket!.connected) {
+        _flushPendingConversationJoins();
+      }
+      return;
+    }
+    if (_isConnecting) return;
+    _isConnecting = true;
 
     final token = await _readToken();
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) {
+      _isConnecting = false;
+      return;
+    }
 
     final socket = io.io(
       ApiEndpoints.uploadBaseUrl,
@@ -32,6 +44,19 @@ class MessageSocketService {
           .setAuth({'token': token})
           .build(),
     );
+
+    socket.onConnect((_) {
+      _isConnecting = false;
+      _flushPendingConversationJoins();
+    });
+
+    socket.onConnectError((_) {
+      _isConnecting = false;
+    });
+
+    socket.onError((_) {
+      _isConnecting = false;
+    });
 
     socket.on('message:new', (data) {
       if (data is! Map) return;
@@ -54,13 +79,24 @@ class MessageSocketService {
     _socket = socket;
   }
 
-  Future<void> joinConversation(String conversationId) async {
-    await connect();
-    _socket?.emit('conversation:join', conversationId);
+  void joinConversation(String conversationId) {
+    final trimmed = conversationId.trim();
+    if (trimmed.isEmpty) return;
+
+    _pendingConversationJoins.add(trimmed);
+    final socket = _socket;
+    if (socket?.connected == true) {
+      socket!.emit('conversation:join', trimmed);
+      return;
+    }
+
+    connect();
   }
 
   void leaveConversation(String conversationId) {
-    _socket?.emit('conversation:leave', conversationId);
+    final trimmed = conversationId.trim();
+    _pendingConversationJoins.remove(trimmed);
+    _socket?.emit('conversation:leave', trimmed);
   }
 
   void setOnMessage(void Function(MessageEntity message)? listener) {
@@ -76,5 +112,16 @@ class MessageSocketService {
   void dispose() {
     _socket?.dispose();
     _socket = null;
+    _isConnecting = false;
+    _pendingConversationJoins.clear();
+  }
+
+  void _flushPendingConversationJoins() {
+    final socket = _socket;
+    if (socket?.connected != true) return;
+
+    for (final conversationId in _pendingConversationJoins) {
+      socket!.emit('conversation:join', conversationId);
+    }
   }
 }

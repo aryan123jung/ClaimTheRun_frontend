@@ -52,8 +52,11 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
     );
   }
 
-  Future<void> loadFriends() async {
-    state = state.copyWith(status: AddFriendStatus.loading, clearError: true);
+  Future<void> loadFriends({bool showLoader = true}) async {
+    state = state.copyWith(
+      status: showLoader ? AddFriendStatus.loading : state.status,
+      clearError: true,
+    );
     final result = await _searchUsersUsecase(
       const SearchUsersParams(search: ''),
     );
@@ -91,13 +94,14 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
     final result = await _sendFriendRequestUsecase(
       FriendTargetParams(id: user.id),
     );
-    return result.fold(
+    String? message;
+    result.fold(
       (failure) {
         state = state.copyWith(
           status: AddFriendStatus.error,
           errorMessage: failure.message,
         );
-        return failure.message;
+        message = failure.message;
       },
       (_) {
         final updatedUser = user.copyWith(friendStatus: 'PENDING_OUTGOING');
@@ -106,9 +110,17 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
           searchResults: _replaceUser(updatedUser),
           friends: _replaceFriend(updatedUser),
         );
-        return null;
       },
     );
+
+    if (message != null) {
+      await _reconcileRemoteState(user.id);
+      return message;
+    }
+
+    await loadFriends(showLoader: false);
+    await _refreshSearchIfNeeded();
+    return null;
   }
 
   Future<String?> cancelRequest(FriendUserEntity user) async {
@@ -116,13 +128,14 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
     final result = await _cancelFriendRequestUsecase(
       FriendTargetParams(id: user.id),
     );
-    return result.fold(
+    String? message;
+    result.fold(
       (failure) {
         state = state.copyWith(
           status: AddFriendStatus.error,
           errorMessage: failure.message,
         );
-        return failure.message;
+        message = failure.message;
       },
       (_) {
         final updatedUser = user.copyWith(friendStatus: 'NONE');
@@ -131,9 +144,17 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
           searchResults: _replaceUser(updatedUser),
           friends: _replaceFriend(updatedUser),
         );
-        return null;
       },
     );
+
+    if (message != null) {
+      await _reconcileRemoteState(user.id);
+      return message;
+    }
+
+    await loadFriends(showLoader: false);
+    await _refreshSearchIfNeeded();
+    return null;
   }
 
   Future<String?> acceptRequest(FriendRequestEntity request) async {
@@ -141,13 +162,14 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
     final result = await _acceptFriendRequestUsecase(
       FriendTargetParams(id: request.id),
     );
-    return result.fold(
+    String? message;
+    result.fold(
       (failure) {
         state = state.copyWith(
           status: AddFriendStatus.error,
           errorMessage: failure.message,
         );
-        return failure.message;
+        message = failure.message;
       },
       (_) {
         final updatedFriends = [
@@ -164,9 +186,16 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
               .toList(),
           searchResults: _patchUserStatus(request.userId, 'FRIEND'),
         );
-        return null;
       },
     );
+
+    if (message != null) {
+      return message;
+    }
+
+    await loadFriends(showLoader: false);
+    await _refreshSearchIfNeeded();
+    return null;
   }
 
   Future<String?> rejectRequest(FriendRequestEntity request) async {
@@ -174,13 +203,14 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
     final result = await _rejectFriendRequestUsecase(
       FriendTargetParams(id: request.id),
     );
-    return result.fold(
+    String? message;
+    result.fold(
       (failure) {
         state = state.copyWith(
           status: AddFriendStatus.error,
           errorMessage: failure.message,
         );
-        return failure.message;
+        message = failure.message;
       },
       (_) {
         state = state.copyWith(
@@ -190,21 +220,29 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
               .toList(),
           searchResults: _patchUserStatus(request.userId, 'NONE'),
         );
-        return null;
       },
     );
+
+    if (message != null) {
+      return message;
+    }
+
+    await loadFriends(showLoader: false);
+    await _refreshSearchIfNeeded();
+    return null;
   }
 
   Future<String?> unfriend(FriendUserEntity user) async {
     state = state.copyWith(status: AddFriendStatus.action, clearError: true);
     final result = await _unfriendUsecase(FriendTargetParams(id: user.id));
-    return result.fold(
+    String? message;
+    result.fold(
       (failure) {
         state = state.copyWith(
           status: AddFriendStatus.error,
           errorMessage: failure.message,
         );
-        return failure.message;
+        message = failure.message;
       },
       (_) {
         final updatedUser = user.copyWith(friendStatus: 'NONE');
@@ -213,8 +251,58 @@ class AddFriendViewModel extends Notifier<AddFriendState> {
           searchResults: _replaceUser(updatedUser),
           friends: state.friends.where((item) => item.id != user.id).toList(),
         );
-        return null;
       },
+    );
+
+    if (message != null) {
+      await _reconcileRemoteState(user.id);
+      return message;
+    }
+
+    await loadFriends(showLoader: false);
+    await _refreshSearchIfNeeded();
+    return null;
+  }
+
+  Future<void> _refreshSearchIfNeeded() async {
+    final currentSearch = state.searchText.trim();
+    if (currentSearch.isEmpty) {
+      return;
+    }
+
+    final result = await _searchUsersUsecase(
+      SearchUsersParams(search: currentSearch),
+    );
+    result.fold(
+      (_) {},
+      (users) => state = state.copyWith(
+        status: AddFriendStatus.loaded,
+        searchResults: users,
+        clearError: true,
+      ),
+    );
+  }
+
+  Future<void> _reconcileRemoteState(String userId) async {
+    final currentSearch = state.searchText.trim();
+    if (currentSearch.isNotEmpty) {
+      await _refreshSearchIfNeeded();
+    } else {
+      await loadFriends(showLoader: false);
+    }
+
+    final refreshed = [
+      ...state.searchResults,
+      ...state.friends,
+    ].where((item) => item.id == userId);
+
+    if (refreshed.isEmpty) return;
+    final item = refreshed.first;
+    state = state.copyWith(
+      status: AddFriendStatus.loaded,
+      searchResults: _replaceUser(item),
+      friends: _replaceFriend(item),
+      clearError: true,
     );
   }
 

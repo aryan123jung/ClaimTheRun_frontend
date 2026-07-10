@@ -23,6 +23,9 @@ class _AddFriendScreenState extends ConsumerState<AddFriendScreen> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(
+      () => ref.read(addFriendViewModelProvider.notifier).loadFriends(),
+    );
   }
 
   @override

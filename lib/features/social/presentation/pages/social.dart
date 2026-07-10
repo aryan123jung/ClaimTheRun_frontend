@@ -254,6 +254,11 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                           .read(addFriendViewModelProvider.notifier)
                           .loadFriends();
                     },
+                    onRefreshFriends: () {
+                      ref
+                          .read(addFriendViewModelProvider.notifier)
+                          .loadFriends();
+                    },
                   ),
                   _GroupsTab(groups: _groups),
                 ],
@@ -326,18 +331,20 @@ class _FriendsTab extends StatelessWidget {
     this.isLoading = false,
     this.errorMessage,
     this.onRetry,
+    this.onRefreshFriends,
   });
 
   final List<FriendUserEntity> friends;
   final bool isLoading;
   final String? errorMessage;
   final VoidCallback? onRetry;
+  final VoidCallback? onRefreshFriends;
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
-        onRetry?.call();
+        onRefreshFriends?.call();
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),

@@ -29,11 +29,13 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late final MessageViewModel _messageNotifier;
   String? _conversationId;
 
   @override
   void initState() {
     super.initState();
+    _messageNotifier = ref.read(messageViewModelProvider.notifier);
     Future.microtask(_bootstrapConversation);
   }
 
@@ -41,9 +43,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void dispose() {
     final conversationId = _conversationId;
     if (conversationId != null) {
-      ref
-          .read(messageViewModelProvider.notifier)
-          .leaveConversation(conversationId);
+      _messageNotifier.leaveConversation(conversationId);
     }
     _controller.dispose();
     _scrollController.dispose();
@@ -51,7 +51,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _bootstrapConversation() async {
-    final notifier = ref.read(messageViewModelProvider.notifier);
+    final notifier = _messageNotifier;
     final conversationId = widget.initialConversationId;
 
     if (conversationId != null && conversationId.isNotEmpty) {
