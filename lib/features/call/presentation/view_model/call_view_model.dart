@@ -338,12 +338,18 @@ class CallViewModel extends Notifier<CallState> {
   }
 
   Future<void> _endLocally({CallStatus status = CallStatus.ended}) async {
+    final previousState = state;
     await _stopRingtone();
     await _disposeCallResources();
     state = CallState(
       status: status,
-      selfId: state.selfId,
-      errorMessage: status == CallStatus.error ? state.errorMessage : null,
+      callId: previousState.callId,
+      selfId: previousState.selfId,
+      participant: previousState.participant,
+      isVideo: previousState.isVideo,
+      errorMessage: status == CallStatus.error
+          ? previousState.errorMessage
+          : null,
     );
   }
 
