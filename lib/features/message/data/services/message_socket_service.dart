@@ -11,15 +11,41 @@ final messageSocketServiceProvider = Provider<MessageSocketService>((ref) {
   return service;
 });
 
+class GroupVoiceParticipantSocketPayload {
+  const GroupVoiceParticipantSocketPayload({
+    required this.userId,
+    required this.name,
+    this.avatarUrl,
+  });
+
+  final String userId;
+  final String name;
+  final String? avatarUrl;
+}
+
 class MessageSocketService {
   static const _tokenKey = 'auth_token';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final Set<String> _pendingConversationJoins = <String>{};
   final Set<String> _pendingGroupJoins = <String>{};
+  final Map<String, Map<String, dynamic>> _pendingGroupVoiceJoins =
+      <String, Map<String, dynamic>>{};
   io.Socket? _socket;
   void Function(MessageEntity message)? _onMessage;
   void Function(GroupMessageEntity message)? _onGroupMessage;
+  void Function(
+    String communityId,
+    List<GroupVoiceParticipantSocketPayload> participants,
+  )?
+  _onGroupVoiceParticipants;
+  void Function(
+    String communityId,
+    GroupVoiceParticipantSocketPayload participant,
+  )?
+  _onGroupVoiceUserJoined;
+  void Function(String communityId, String userId)? _onGroupVoiceUserLeft;
+  void Function(Map<String, dynamic> payload)? _onGroupVoiceSignal;
   bool _isConnecting = false;
   int _socketUrlIndex = 0;
 
@@ -103,6 +129,38 @@ class MessageSocketService {
       _onGroupMessage?.call(payload);
     });
 
+    socket.on('group:voice:participants', (data) {
+      if (data is! Map) return;
+      final communityId = data['communityId']?.toString() ?? '';
+      final rawItems = data['participants'] as List? ?? const [];
+      final participants = rawItems
+          .map((item) => _mapGroupVoiceParticipant(item))
+          .whereType<GroupVoiceParticipantSocketPayload>()
+          .toList();
+      _onGroupVoiceParticipants?.call(communityId, participants);
+    });
+
+    socket.on('group:voice:user-joined', (data) {
+      if (data is! Map) return;
+      final communityId = data['communityId']?.toString() ?? '';
+      final participant = _mapGroupVoiceParticipant(data['participant']);
+      if (participant == null) return;
+      _onGroupVoiceUserJoined?.call(communityId, participant);
+    });
+
+    socket.on('group:voice:user-left', (data) {
+      if (data is! Map) return;
+      _onGroupVoiceUserLeft?.call(
+        data['communityId']?.toString() ?? '',
+        data['userId']?.toString() ?? '',
+      );
+    });
+
+    socket.on('group:voice:signal', (data) {
+      if (data is! Map) return;
+      _onGroupVoiceSignal?.call(Map<String, dynamic>.from(data));
+    });
+
     socket.connect();
     _socket = socket;
   }
@@ -135,6 +193,38 @@ class MessageSocketService {
     _onGroupMessage = listener;
   }
 
+  void setOnGroupVoiceParticipants(
+    void Function(
+      String communityId,
+      List<GroupVoiceParticipantSocketPayload> participants,
+    )?
+    listener,
+  ) {
+    _onGroupVoiceParticipants = listener;
+  }
+
+  void setOnGroupVoiceUserJoined(
+    void Function(
+      String communityId,
+      GroupVoiceParticipantSocketPayload participant,
+    )?
+    listener,
+  ) {
+    _onGroupVoiceUserJoined = listener;
+  }
+
+  void setOnGroupVoiceUserLeft(
+    void Function(String communityId, String userId)? listener,
+  ) {
+    _onGroupVoiceUserLeft = listener;
+  }
+
+  void setOnGroupVoiceSignal(
+    void Function(Map<String, dynamic> payload)? listener,
+  ) {
+    _onGroupVoiceSignal = listener;
+  }
+
   void joinGroup(String communityId) {
     final trimmed = communityId.trim();
     if (trimmed.isEmpty) return;
@@ -155,6 +245,41 @@ class MessageSocketService {
     _socket?.emit('group:leave', trimmed);
   }
 
+  void joinGroupVoice({
+    required String communityId,
+    required String userId,
+    required String name,
+    String? avatarUrl,
+  }) {
+    final trimmed = communityId.trim();
+    if (trimmed.isEmpty || userId.trim().isEmpty) return;
+
+    final payload = <String, dynamic>{
+      'communityId': trimmed,
+      'userId': userId.trim(),
+      'name': name.trim(),
+      'avatarUrl': avatarUrl,
+    };
+    _pendingGroupVoiceJoins[trimmed] = payload;
+    final socket = _socket;
+    if (socket?.connected == true) {
+      socket!.emit('group:voice:join', payload);
+      return;
+    }
+
+    connect();
+  }
+
+  void leaveGroupVoice(String communityId) {
+    final trimmed = communityId.trim();
+    _pendingGroupVoiceJoins.remove(trimmed);
+    _socket?.emit('group:voice:leave', trimmed);
+  }
+
+  void signalGroupVoice(Map<String, dynamic> payload) {
+    _socket?.emit('group:voice:signal', payload);
+  }
+
   Future<String?> _readToken() async {
     var token = await _storage.read(key: _tokenKey);
     token ??= (await SharedPreferences.getInstance()).getString(_tokenKey);
@@ -168,6 +293,7 @@ class MessageSocketService {
     _socketUrlIndex = 0;
     _pendingConversationJoins.clear();
     _pendingGroupJoins.clear();
+    _pendingGroupVoiceJoins.clear();
   }
 
   void _flushPendingConversationJoins() {
@@ -180,6 +306,9 @@ class MessageSocketService {
     for (final communityId in _pendingGroupJoins) {
       socket!.emit('group:join', communityId);
     }
+    for (final payload in _pendingGroupVoiceJoins.values) {
+      socket!.emit('group:voice:join', payload);
+    }
   }
 
   void _tryNextSocketHost(List<String> socketBaseUrls) {
@@ -191,5 +320,14 @@ class MessageSocketService {
     _socket = null;
     _socketUrlIndex += 1;
     connect();
+  }
+
+  GroupVoiceParticipantSocketPayload? _mapGroupVoiceParticipant(dynamic raw) {
+    if (raw is! Map) return null;
+    return GroupVoiceParticipantSocketPayload(
+      userId: raw['userId']?.toString() ?? '',
+      name: raw['name']?.toString() ?? 'Runner',
+      avatarUrl: raw['avatarUrl']?.toString(),
+    );
   }
 }
