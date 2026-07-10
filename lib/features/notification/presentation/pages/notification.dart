@@ -24,12 +24,15 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
   void initState() {
     super.initState();
     Future.microtask(
-      () =>
-          ref.read(notificationViewModelProvider.notifier).loadNotifications(),
+      () => ref
+          .read(notificationViewModelProvider.notifier)
+          .loadNotifications(force: true),
     );
-    _refreshTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (!mounted) return;
-      ref.read(notificationViewModelProvider.notifier).loadNotifications();
+      ref
+          .read(notificationViewModelProvider.notifier)
+          .loadNotifications(force: true);
     });
   }
 

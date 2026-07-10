@@ -75,7 +75,13 @@ class AuthViewModel extends Notifier<AuthState> {
     state = const AuthState.initial();
   }
 
-  Future<void> loadCurrentUser() async {
+  Future<void> loadCurrentUser({bool force = false}) async {
+    if (!force &&
+        state.authEntity != null &&
+        state.status == AuthStatus.authenticated) {
+      return;
+    }
+
     final result = await _getCurrentUserUsecase();
     result.fold(
       (failure) => state = state.copyWith(

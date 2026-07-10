@@ -21,15 +21,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   RunMode _selectedRunMode = RunMode.solo;
 
   @override
-  void initState() {
-    super.initState();
-    Future.microtask(
-      () =>
-          ref.read(notificationViewModelProvider.notifier).loadNotifications(),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;

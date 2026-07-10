@@ -210,7 +210,9 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                     isLoading: socialState.status == SocialStatus.loading,
                     errorMessage: socialState.errorMessage,
                     onRetry: () {
-                      ref.read(socialViewModelProvider.notifier).loadPosts();
+                      ref
+                          .read(socialViewModelProvider.notifier)
+                          .loadPosts(force: true);
                     },
                     onCreatePost: () {
                       showCreatePostPopup(

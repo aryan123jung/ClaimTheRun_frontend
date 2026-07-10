@@ -25,9 +25,17 @@ class NotificationViewModel extends Notifier<NotificationState> {
     return const NotificationState.initial();
   }
 
-  Future<void> loadNotifications() async {
+  Future<void> loadNotifications({bool force = false}) async {
+    if (!force &&
+        state.notifications.isNotEmpty &&
+        state.status == NotificationStatus.loaded) {
+      return;
+    }
+
     state = state.copyWith(
-      status: NotificationStatus.loading,
+      status: state.notifications.isEmpty
+          ? NotificationStatus.loading
+          : state.status,
       clearError: true,
     );
     final result = await _getNotificationsUsecase();

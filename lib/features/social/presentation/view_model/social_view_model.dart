@@ -25,8 +25,17 @@ class SocialViewModel extends Notifier<SocialState> {
     return const SocialState.initial();
   }
 
-  Future<void> loadPosts() async {
-    state = state.copyWith(status: SocialStatus.loading, clearError: true);
+  Future<void> loadPosts({bool force = false}) async {
+    if (!force &&
+        state.posts.isNotEmpty &&
+        state.status == SocialStatus.loaded) {
+      return;
+    }
+
+    state = state.copyWith(
+      status: state.posts.isEmpty ? SocialStatus.loading : state.status,
+      clearError: true,
+    );
 
     final result = await _getPostsUsecase();
     result.fold(
@@ -42,8 +51,17 @@ class SocialViewModel extends Notifier<SocialState> {
     );
   }
 
-  Future<void> loadMyPosts() async {
-    state = state.copyWith(status: SocialStatus.loading, clearError: true);
+  Future<void> loadMyPosts({bool force = false}) async {
+    if (!force &&
+        state.myPosts.isNotEmpty &&
+        state.status == SocialStatus.loaded) {
+      return;
+    }
+
+    state = state.copyWith(
+      status: state.myPosts.isEmpty ? SocialStatus.loading : state.status,
+      clearError: true,
+    );
 
     final result = await _getMyPostsUsecase();
     result.fold(

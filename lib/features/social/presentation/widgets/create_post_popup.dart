@@ -479,7 +479,8 @@ class _CreatePostPopupCardState extends State<CreatePostPopupCard> {
     try {
       final file = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
+        imageQuality: 60,
+        maxWidth: 1280,
       );
 
       if (file == null) {

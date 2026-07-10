@@ -9,7 +9,6 @@ import 'package:clain_the_run/features/profile/presentation/widgets/profilestatt
 import 'package:clain_the_run/features/profile/presentation/widgets/statsheet.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/weeklyactivitycart.dart';
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
-import 'package:clain_the_run/features/social/presentation/state/social_state.dart';
 import 'package:clain_the_run/features/social/presentation/view_model/social_view_model.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/create_post_popup.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
@@ -83,10 +82,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authViewModelProvider);
-    final user = authState.authEntity;
-    final socialState = ref.watch(socialViewModelProvider);
-    final myPosts = socialState.myPosts.map(_mapPostEntityToViewModel).toList();
+    final user = ref.watch(
+      authViewModelProvider.select((state) => state.authEntity),
+    );
+    final myPosts = ref
+        .watch(socialViewModelProvider.select((state) => state.myPosts))
+        .map(_mapPostEntityToViewModel)
+        .toList();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final fullName = user?.fullname.trim().isNotEmpty == true
@@ -276,24 +278,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
               const SizedBox(height: 10),
-              if (socialState.status == SocialStatus.loading && myPosts.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 30),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (socialState.errorMessage != null && myPosts.isEmpty)
-                _ProfilePostMessage(
-                  message: socialState.errorMessage!,
-                  actionLabel: 'Retry',
-                  onTap: () {
-                    ref.read(socialViewModelProvider.notifier).loadMyPosts();
-                  },
-                )
-              else if (myPosts.isEmpty)
+              if (myPosts.isEmpty)
                 _ProfilePostMessage(
                   message: 'You have not posted anything yet.',
-                  actionLabel: 'Create one',
-                  onTap: _openCreatePostPopup,
+                  actionLabel: 'Refresh',
+                  onTap: () {
+                    ref
+                        .read(socialViewModelProvider.notifier)
+                        .loadMyPosts(force: true);
+                  },
                 ),
               for (final post in myPosts) ...[
                 PostCard(
@@ -314,8 +307,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _refreshProfile() async {
-    await ref.read(authViewModelProvider.notifier).loadCurrentUser();
-    await ref.read(socialViewModelProvider.notifier).loadMyPosts();
+    // The profile header is already kept in sync after edit, so refreshing
+    // should only reload the posts list instead of re-fetching everything.
+    await ref.read(socialViewModelProvider.notifier).loadMyPosts(force: true);
   }
 
   Future<void> _openEditProfileSheet() async {
@@ -356,7 +350,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 try {
                   final file = await imagePicker.pickImage(
                     source: ImageSource.gallery,
-                    imageQuality: 85,
+                    imageQuality: 60,
+                    maxWidth: 1080,
                   );
 
                   if (file == null) {
