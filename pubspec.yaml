@@ -51,6 +51,7 @@ dependencies:
   pretty_dio_logger: ^1.4.0
   flutter_secure_storage: ^10.0.0
   shared_preferences: ^2.5.4
+  intl: ^0.20.2
   connectivity_plus: ^7.0.0
   video_player: ^2.9.2
   flutter_launcher_icons: ^0.14.4

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-class ChatMessageModel {
-  const ChatMessageModel({
+/// A single chat bubble. Sent messages (isMine) are right-aligned in
+/// brand green; received messages are left-aligned in light gray.
+class ChatBubble extends StatelessWidget {
+  const ChatBubble({
+    super.key,
     required this.text,
     required this.timestamp,
     required this.isMine,
@@ -12,20 +15,11 @@ class ChatMessageModel {
   final String timestamp;
   final bool isMine;
   final bool isRead;
-}
-
-/// A single chat bubble. Sent messages (isMine) are right-aligned in
-/// brand green; received messages are left-aligned in light gray.
-class ChatBubble extends StatelessWidget {
-  const ChatBubble({super.key, required this.message});
-
-  final ChatMessageModel message;
 
   static const _brandGreen = Color(0xFF72B63E);
 
   @override
   Widget build(BuildContext context) {
-    final isMine = message.isMine;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Align(
@@ -54,7 +48,7 @@ class ChatBubble extends StatelessWidget {
               ),
             ),
             child: Text(
-              message.text,
+              text,
               style: TextStyle(
                 fontSize: 14,
                 height: 1.35,
@@ -69,7 +63,7 @@ class ChatBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                message.timestamp,
+                timestamp,
                 style: TextStyle(
                   fontSize: 11,
                   color: isDark
@@ -82,7 +76,7 @@ class ChatBubble extends StatelessWidget {
                 Icon(
                   Icons.done_all_rounded,
                   size: 14,
-                  color: message.isRead ? _brandGreen : const Color(0xFF9A9A9A),
+                  color: isRead ? _brandGreen : const Color(0xFF9A9A9A),
                 ),
               ],
             ],

@@ -132,6 +132,7 @@ class _AddFriendScreenState extends ConsumerState<AddFriendScreen> {
                     MaterialPageRoute(
                       builder: (_) => FriendProfileScreen(
                         friend: FriendModel(
+                          id: user.id,
                           name: user.fullname,
                           avatarUrl: avatarUrl,
                           totalKm: 0,

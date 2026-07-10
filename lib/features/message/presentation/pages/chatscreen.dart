@@ -1,60 +1,39 @@
+import 'package:clain_the_run/features/addfriend/domain/entities/friend_user_entity.dart';
+import 'package:clain_the_run/features/message/presentation/state/message_state.dart';
+import 'package:clain_the_run/features/message/presentation/view_model/message_view_model.dart';
 import 'package:clain_the_run/features/message/presentation/widgets/chatbubble.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
-class ChatScreen extends StatefulWidget {
+class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
     super.key,
-    required this.name,
+    required this.friendId,
+    required this.friendName,
+    required this.friendUsername,
     required this.avatarUrl,
-    this.isOnline = false,
   });
 
-  final String name;
+  final String friendId;
+  final String friendName;
+  final String friendUsername;
   final String avatarUrl;
-  final bool isOnline;
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
-  // static const _brandGreen = Color(0xFF72B63E);
-
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  String? _conversationId;
 
-  // Placeholder data — replace with real messages from your
-  // backend/provider, keyed by conversation id.
-  final List<ChatMessageModel> _messages = [
-    const ChatMessageModel(
-      text: 'Hey! Are we still on for the run tomorrow?',
-      timestamp: '7:02 AM',
-      isMine: false,
-    ),
-    const ChatMessageModel(
-      text: 'Yes definitely, same route as last time?',
-      timestamp: '7:04 AM',
-      isMine: true,
-      isRead: true,
-    ),
-    const ChatMessageModel(
-      text:
-          "Let's try the lake trail instead, heard it's nice this time of year",
-      timestamp: '7:05 AM',
-      isMine: false,
-    ),
-    const ChatMessageModel(
-      text: 'Sounds good, what time?',
-      timestamp: '7:06 AM',
-      isMine: true,
-      isRead: true,
-    ),
-    const ChatMessageModel(
-      text: 'Nice run today! Let\'s go again tomorrow morning',
-      timestamp: '7:15 AM',
-      isMine: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_bootstrapConversation);
+  }
 
   @override
   void dispose() {
@@ -63,35 +42,73 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  void _sendMessage() {
+  Future<void> _bootstrapConversation() async {
+    final notifier = ref.read(messageViewModelProvider.notifier);
+    final conversation = await notifier.openConversationWithFriend(
+      FriendUserEntity(
+        id: widget.friendId,
+        fullname: widget.friendName,
+        username: widget.friendUsername,
+        profileUrl: widget.avatarUrl,
+        mutualFriends: 0,
+        friendStatus: 'FRIEND',
+      ),
+    );
+    if (!mounted || conversation == null) return;
+
+    setState(() {
+      _conversationId = conversation.id;
+    });
+
+    await notifier.loadMessages(conversation.id, force: true);
+    _jumpToBottom();
+  }
+
+  Future<void> _sendMessage() async {
+    final conversationId = _conversationId;
+    if (conversationId == null) return;
+
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      _messages.add(
-        ChatMessageModel(text: text, timestamp: 'Now', isMine: true),
-      );
-      _controller.clear();
-    });
+    final messenger = ScaffoldMessenger.of(context);
+    _controller.clear();
 
+    final error = await ref
+        .read(messageViewModelProvider.notifier)
+        .sendMessage(conversationId, text);
+
+    if (!mounted) return;
+
+    if (error != null) {
+      _controller.text = text;
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+
+    _jumpToBottom(animated: true);
+  }
+
+  void _jumpToBottom({bool animated = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (!_scrollController.hasClients) return;
+      if (animated) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
+      } else {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
   }
 
   void _startCall({required bool isVideo}) {
-    // Wire this up to your actual calling integration (e.g. Agora,
-    // Twilio, or a native platform channel).
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Starting ${isVideo ? 'video' : 'voice'} call with ${widget.name}...',
+          '${isVideo ? 'Video' : 'Voice'} calling will be added next.',
         ),
       ),
     );
@@ -100,6 +117,11 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final state = ref.watch(messageViewModelProvider);
+    final conversationId = _conversationId;
+    final messages = conversationId == null
+        ? const []
+        : state.messagesFor(conversationId);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -107,23 +129,85 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           children: [
             _ChatHeader(
-              name: widget.name,
+              name: widget.friendName,
               avatarUrl: widget.avatarUrl,
-              isOnline: widget.isOnline,
               onBack: () => Navigator.of(context).pop(),
               onVoiceCall: () => _startCall(isVideo: false),
               onVideoCall: () => _startCall(isVideo: true),
             ),
             Expanded(
-              child: ListView.separated(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                itemCount: _messages.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 14),
-                itemBuilder: (context, index) {
-                  return ChatBubble(message: _messages[index]);
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  final id = _conversationId;
+                  if (id != null) {
+                    await ref
+                        .read(messageViewModelProvider.notifier)
+                        .loadMessages(id, force: true);
+                  }
                 },
+                child: Builder(
+                  builder: (context) {
+                    if (conversationId == null &&
+                        state.status == MessageStatus.loading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (state.errorMessage != null && messages.isEmpty) {
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 28,
+                              vertical: 80,
+                            ),
+                            child: Text(
+                              state.errorMessage!,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    if (messages.isEmpty) {
+                      return ListView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        children: const [
+                          Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: Center(
+                              child: Text(
+                                'Say hello and start the conversation.',
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return ListView.separated(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                      itemCount: messages.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 14),
+                      itemBuilder: (context, index) {
+                        final message = messages[index];
+                        return ChatBubble(
+                          text: message.text,
+                          timestamp: DateFormat(
+                            'h:mm a',
+                          ).format(message.createdAt),
+                          isMine: message.isMine,
+                          isRead: message.isReadByOtherUser,
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
             _MessageInputBar(controller: _controller, onSend: _sendMessage),
@@ -138,7 +222,6 @@ class _ChatHeader extends StatelessWidget {
   const _ChatHeader({
     required this.name,
     required this.avatarUrl,
-    required this.isOnline,
     required this.onBack,
     required this.onVoiceCall,
     required this.onVideoCall,
@@ -146,12 +229,9 @@ class _ChatHeader extends StatelessWidget {
 
   final String name;
   final String avatarUrl;
-  final bool isOnline;
   final VoidCallback onBack;
   final VoidCallback onVoiceCall;
   final VoidCallback onVideoCall;
-
-  static const _brandGreen = Color(0xFF72B63E);
 
   @override
   Widget build(BuildContext context) {
@@ -176,53 +256,16 @@ class _ChatHeader extends StatelessWidget {
               color: isDark ? Colors.white : const Color(0xFF1A1A1A),
             ),
           ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              CircleAvatar(
-                radius: 19,
-                backgroundImage: NetworkImage(avatarUrl),
-              ),
-              if (isOnline)
-                Positioned(
-                  right: -1,
-                  bottom: -1,
-                  child: Container(
-                    width: 11,
-                    height: 11,
-                    decoration: BoxDecoration(
-                      color: _brandGreen,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF111C26) : Colors.white,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          CircleAvatar(radius: 19, backgroundImage: NetworkImage(avatarUrl)),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF111111),
-                  ),
-                ),
-                Text(
-                  isOnline ? 'Active now' : 'Offline',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isOnline ? _brandGreen : const Color(0xFF9A9A9A),
-                  ),
-                ),
-              ],
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF111111),
+              ),
             ),
           ),
           _HeaderIconButton(icon: Icons.call_rounded, onTap: onVoiceCall),
@@ -267,7 +310,7 @@ class _MessageInputBar extends StatelessWidget {
   const _MessageInputBar({required this.controller, required this.onSend});
 
   final TextEditingController controller;
-  final VoidCallback onSend;
+  final Future<void> Function() onSend;
 
   static const _brandGreen = Color(0xFF72B63E);
 
@@ -275,87 +318,63 @@ class _MessageInputBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        14,
-        10,
-        14,
-        10 + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0C1721) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1B2732) : const Color(0xFFF7F7F5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Icons.add_rounded,
-              size: 22,
-              color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF6E6E6E),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 42, maxHeight: 120),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF1B2732)
-                    : const Color(0xFFF7F7F5),
-                borderRadius: BorderRadius.circular(21),
-              ),
+        child: Row(
+          children: [
+            Expanded(
               child: TextField(
                 controller: controller,
                 minLines: 1,
                 maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => onSend(),
                 decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Message...',
-                  hintStyle: TextStyle(
-                    fontSize: 14,
-                    color: isDark
-                        ? const Color(0xFF9BA8B4)
-                        : const Color(0xFF9A9A9A),
+                  hintText: 'Type a message...',
+                  filled: true,
+                  fillColor: isDark
+                      ? const Color(0xFF111C26)
+                      : const Color(0xFFF5F5F2),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  isCollapsed: true,
-                ),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.white : const Color(0xFF111111),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Material(
-            color: _brandGreen,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: onSend,
-              customBorder: const CircleBorder(),
-              child: const Padding(
-                padding: EdgeInsets.all(11),
-                child: Icon(
-                  Icons.arrow_upward_rounded,
-                  size: 18,
-                  color: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Material(
+              color: _brandGreen,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onSend,
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Icon(
+                    Icons.send_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

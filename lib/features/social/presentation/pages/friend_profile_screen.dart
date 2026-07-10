@@ -101,9 +101,10 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => ChatScreen(
-                            name: widget.friend.name,
+                            friendId: widget.friend.id,
+                            friendName: widget.friend.name,
+                            friendUsername: widget.bio.replaceFirst('@', ''),
                             avatarUrl: widget.friend.avatarUrl,
-                            isOnline: true,
                           ),
                         ),
                       );

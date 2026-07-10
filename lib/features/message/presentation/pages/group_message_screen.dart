@@ -24,19 +24,19 @@ class _GroupMessageScreenState extends State<GroupMessageScreen> {
   final ScrollController _scrollController = ScrollController();
   GroupMessageMode _mode = GroupMessageMode.chat;
 
-  final List<ChatMessageModel> _messages = [
-    const ChatMessageModel(
+  final List<_GroupChatMessage> _messages = [
+    const _GroupChatMessage(
       text: 'Morning team. Are we still doing the 6 AM group run?',
       timestamp: '6:42 AM',
       isMine: false,
     ),
-    const ChatMessageModel(
+    const _GroupChatMessage(
       text: 'Yes, meeting at the usual spot near the gate.',
       timestamp: '6:44 AM',
       isMine: true,
       isRead: true,
     ),
-    const ChatMessageModel(
+    const _GroupChatMessage(
       text: 'Perfect. I’ll bring the new route for everyone to try.',
       timestamp: '6:45 AM',
       isMine: false,
@@ -56,7 +56,7 @@ class _GroupMessageScreenState extends State<GroupMessageScreen> {
 
     setState(() {
       _messages.add(
-        ChatMessageModel(text: text, timestamp: 'Now', isMine: true),
+        _GroupChatMessage(text: text, timestamp: 'Now', isMine: true),
       );
       _controller.clear();
     });
@@ -101,7 +101,13 @@ class _GroupMessageScreenState extends State<GroupMessageScreen> {
                       separatorBuilder: (context, index) =>
                           const SizedBox(height: 14),
                       itemBuilder: (context, index) {
-                        return ChatBubble(message: _messages[index]);
+                        final message = _messages[index];
+                        return ChatBubble(
+                          text: message.text,
+                          timestamp: message.timestamp,
+                          isMine: message.isMine,
+                          isRead: message.isRead,
+                        );
                       },
                     )
                   : const _WalkieTalkiePanel(),
@@ -116,6 +122,20 @@ class _GroupMessageScreenState extends State<GroupMessageScreen> {
       ),
     );
   }
+}
+
+class _GroupChatMessage {
+  const _GroupChatMessage({
+    required this.text,
+    required this.timestamp,
+    required this.isMine,
+    this.isRead = false,
+  });
+
+  final String text;
+  final String timestamp;
+  final bool isMine;
+  final bool isRead;
 }
 
 class _GroupMessageHeader extends StatelessWidget {

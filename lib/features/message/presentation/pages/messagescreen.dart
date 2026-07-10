@@ -1,68 +1,54 @@
+import 'package:clain_the_run/core/api/api_endpoints.dart';
+import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
+import 'package:clain_the_run/features/message/domain/entities/message_entities.dart';
 import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
+import 'package:clain_the_run/features/message/presentation/state/message_state.dart';
+import 'package:clain_the_run/features/message/presentation/view_model/message_view_model.dart';
 import 'package:clain_the_run/features/message/presentation/widgets/messagecard.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
-class MessagesScreen extends StatelessWidget {
+class MessagesScreen extends ConsumerStatefulWidget {
   const MessagesScreen({super.key});
 
-  // Placeholder data — replace with real conversation data from your
-  // backend/provider.
-  static const _conversations = [
-    ConversationModel(
-      id: '1',
-      name: 'Ram Khadka',
-      avatarUrl: 'https://i.pravatar.cc/150?img=12',
-      lastMessage: 'Nice run today! Let\'s go again tomorrow morning',
-      timestamp: '2m',
-      unreadCount: 2,
-      isOnline: true,
-    ),
-    ConversationModel(
-      id: '2',
-      name: 'Riya Kapoor',
-      avatarUrl: 'https://i.pravatar.cc/150?img=25',
-      lastMessage: 'Sent you the route for the lake trail',
-      timestamp: '18m',
-      unreadCount: 1,
-      isOnline: true,
-    ),
-    ConversationModel(
-      id: '3',
-      name: 'Aarav Sharma',
-      avatarUrl: 'https://i.pravatar.cc/150?img=13',
-      lastMessage: 'You: See you at 6 AM at the park entrance',
-      timestamp: '1h',
-      isLastMessageMine: true,
-    ),
-    ConversationModel(
-      id: '4',
-      name: 'The Runners',
-      avatarUrl: 'https://i.pravatar.cc/150?img=41',
-      lastMessage: 'Kiran: Who\'s in for the weekend long run?',
-      timestamp: '3h',
-      unreadCount: 5,
-    ),
-    ConversationModel(
-      id: '5',
-      name: 'Anjali Rai',
-      avatarUrl: 'https://i.pravatar.cc/150?img=27',
-      lastMessage: 'You: Congrats on the new personal best!',
-      timestamp: 'Yesterday',
-      isLastMessageMine: true,
-    ),
-    ConversationModel(
-      id: '6',
-      name: 'Kiran Gurung',
-      avatarUrl: 'https://i.pravatar.cc/150?img=14',
-      lastMessage: 'Thanks for the tips on pacing',
-      timestamp: 'Yesterday',
-    ),
-  ];
+  @override
+  ConsumerState<MessagesScreen> createState() => _MessagesScreenState();
+}
+
+class _MessagesScreenState extends ConsumerState<MessagesScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(
+      () => ref.read(messageViewModelProvider.notifier).loadConversations(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final state = ref.watch(messageViewModelProvider);
+    final currentUserId = ref.watch(
+      authViewModelProvider.select((state) => state.authEntity?.id),
+    );
+    final conversations = state.conversations.where((conversation) {
+      final query = _query.trim().toLowerCase();
+      if (query.isEmpty) return true;
+      final name = conversation.otherUser.fullname.toLowerCase();
+      final username = conversation.otherUser.username.toLowerCase();
+      return name.contains(query) || username.contains(query);
+    }).toList();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -98,9 +84,9 @@ class MessagesScreen extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(20, 2, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
               child: Text(
-                'Stay in touch with your running crew',
+                'Message your friends and keep the pace going.',
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark
@@ -112,32 +98,90 @@ class MessagesScreen extends StatelessWidget {
             const SizedBox(height: 14),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _SearchField(),
+              child: _SearchField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
+              ),
             ),
             const SizedBox(height: 14),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                itemCount: _conversations.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final conversation = _conversations[index];
-                  return MessageCard(
-                    conversation: conversation,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => ChatScreen(
-                            name: conversation.name,
-                            avatarUrl: conversation.avatarUrl,
-                            isOnline: conversation.isOnline,
-                          ),
-                        ),
-                      );
-                    },
-                  );
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  await ref
+                      .read(messageViewModelProvider.notifier)
+                      .loadConversations(force: true);
                 },
+                child: Builder(
+                  builder: (context) {
+                    if (state.status == MessageStatus.loading &&
+                        state.conversations.isEmpty) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (state.errorMessage != null &&
+                        state.conversations.isEmpty) {
+                      return _InfoPanel(
+                        message: state.errorMessage!,
+                        actionLabel: 'Retry',
+                        onTap: () {
+                          ref
+                              .read(messageViewModelProvider.notifier)
+                              .loadConversations(force: true);
+                        },
+                      );
+                    }
+
+                    if (conversations.isEmpty) {
+                      return _InfoPanel(
+                        message: _query.trim().isEmpty
+                            ? 'No conversations yet. Open a friend profile and start chatting.'
+                            : 'No conversations match your search.',
+                      );
+                    }
+
+                    return ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      itemCount: conversations.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final conversation = conversations[index];
+                        final avatarUrl =
+                            (conversation.otherUser.profileUrl != null &&
+                                conversation.otherUser.profileUrl!.isNotEmpty)
+                            ? ApiEndpoints.profileImageUrl(
+                                conversation.otherUser.profileUrl!,
+                              )
+                            : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(conversation.otherUser.fullname)}&background=E6F3DC&color=3B6D11';
+
+                        return MessageCard(
+                          name: conversation.otherUser.fullname,
+                          avatarUrl: avatarUrl,
+                          lastMessage:
+                              conversation.lastMessageText ?? 'Start chatting',
+                          timestamp: _formatConversationTime(conversation),
+                          unreadCount: conversation.unreadCount,
+                          isLastMessageMine:
+                              conversation.lastMessageSenderId == currentUserId,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  friendId: conversation.otherUser.id,
+                                  friendName: conversation.otherUser.fullname,
+                                  friendUsername:
+                                      conversation.otherUser.username,
+                                  avatarUrl: avatarUrl,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -145,10 +189,27 @@ class MessagesScreen extends StatelessWidget {
       ),
     );
   }
+
+  String _formatConversationTime(MessageConversationEntity conversation) {
+    final value = conversation.lastMessageCreatedAt ?? conversation.updatedAt;
+    final now = DateTime.now();
+    if (now.year == value.year &&
+        now.month == value.month &&
+        now.day == value.day) {
+      return DateFormat('h:mm a').format(value);
+    }
+    if (now.difference(value).inDays < 7) {
+      return DateFormat('EEE').format(value);
+    }
+    return DateFormat('d MMM').format(value);
+  }
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField();
+  const _SearchField({required this.controller, required this.onChanged});
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -168,6 +229,8 @@ class _SearchField extends StatelessWidget {
         children: [
           Expanded(
             child: TextField(
+              controller: controller,
+              onChanged: onChanged,
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: 'Search messages...',
@@ -192,6 +255,35 @@ class _SearchField extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _InfoPanel extends StatelessWidget {
+  const _InfoPanel({required this.message, this.actionLabel, this.onTap});
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 80),
+          child: Column(
+            children: [
+              Text(message, textAlign: TextAlign.center),
+              if (actionLabel != null && onTap != null) ...[
+                const SizedBox(height: 14),
+                OutlinedButton(onPressed: onTap, child: Text(actionLabel!)),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-class ConversationModel {
-  const ConversationModel({
-    required this.id,
+/// A single row in the messages list: avatar (with online dot), name,
+/// last message preview, timestamp, and an unread-count badge.
+class MessageCard extends StatelessWidget {
+  const MessageCard({
+    super.key,
     required this.name,
     required this.avatarUrl,
     required this.lastMessage,
@@ -10,9 +12,9 @@ class ConversationModel {
     this.unreadCount = 0,
     this.isOnline = false,
     this.isLastMessageMine = false,
+    this.onTap,
   });
 
-  final String id;
   final String name;
   final String avatarUrl;
   final String lastMessage;
@@ -20,21 +22,13 @@ class ConversationModel {
   final int unreadCount;
   final bool isOnline;
   final bool isLastMessageMine;
-}
-
-/// A single row in the messages list: avatar (with online dot), name,
-/// last message preview, timestamp, and an unread-count badge.
-class MessageCard extends StatelessWidget {
-  const MessageCard({super.key, required this.conversation, this.onTap});
-
-  final ConversationModel conversation;
   final VoidCallback? onTap;
 
   static const _brandGreen = Color(0xFF72B63E);
 
   @override
   Widget build(BuildContext context) {
-    final hasUnread = conversation.unreadCount > 0;
+    final hasUnread = unreadCount > 0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Material(
@@ -65,9 +59,9 @@ class MessageCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 26,
-                    backgroundImage: NetworkImage(conversation.avatarUrl),
+                    backgroundImage: NetworkImage(avatarUrl),
                   ),
-                  if (conversation.isOnline)
+                  if (isOnline)
                     Positioned(
                       right: 0,
                       bottom: 0,
@@ -89,7 +83,7 @@ class MessageCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      conversation.name,
+                      name,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -99,7 +93,7 @@ class MessageCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        if (conversation.isLastMessageMine)
+                        if (isLastMessageMine)
                           Padding(
                             padding: EdgeInsets.only(right: 4),
                             child: Icon(
@@ -112,7 +106,7 @@ class MessageCard extends StatelessWidget {
                           ),
                         Expanded(
                           child: Text(
-                            conversation.lastMessage,
+                            lastMessage,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -140,7 +134,7 @@ class MessageCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    conversation.timestamp,
+                    timestamp,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: hasUnread ? FontWeight.w600 : FontWeight.w400,
@@ -163,7 +157,7 @@ class MessageCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        '${conversation.unreadCount}',
+                        '$unreadCount',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,

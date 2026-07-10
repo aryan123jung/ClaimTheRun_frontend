@@ -6,6 +6,7 @@ import 'package:clain_the_run/features/addfriend/presentation/state/addfriend_st
 import 'package:clain_the_run/features/addfriend/presentation/view_model/addfriend_view_model.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
+import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
@@ -404,6 +405,19 @@ class _FriendsTab extends StatelessWidget {
             for (final friend in friends) ...[
               FriendCard(
                 friend: _mapFriendUserToCard(friend),
+                onMessage: () {
+                  final cardFriend = _mapFriendUserToCard(friend);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => ChatScreen(
+                        friendId: friend.id,
+                        friendName: friend.fullname,
+                        friendUsername: friend.username,
+                        avatarUrl: cardFriend.avatarUrl,
+                      ),
+                    ),
+                  );
+                },
                 onTap: () {
                   final cardFriend = _mapFriendUserToCard(friend);
                   Navigator.of(context).push(
@@ -430,6 +444,7 @@ class _FriendsTab extends StatelessWidget {
 
 FriendModel _mapFriendUserToCard(FriendUserEntity friend) {
   return FriendModel(
+    id: friend.id,
     name: friend.fullname,
     avatarUrl: (friend.profileUrl != null && friend.profileUrl!.isNotEmpty)
         ? ApiEndpoints.profileImageUrl(friend.profileUrl!)

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 class FriendModel {
   const FriendModel({
+    required this.id,
     required this.name,
     required this.avatarUrl,
     required this.totalKm,
     required this.territories,
   });
 
+  final String id;
   final String name;
   final String avatarUrl;
   final double totalKm;
