@@ -37,6 +37,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    final conversationId = _conversationId;
+    if (conversationId != null) {
+      ref
+          .read(messageViewModelProvider.notifier)
+          .leaveConversation(conversationId);
+    }
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();

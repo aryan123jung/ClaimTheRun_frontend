@@ -1,4 +1,5 @@
 import 'package:clain_the_run/features/addfriend/domain/entities/friend_user_entity.dart';
+import 'package:clain_the_run/features/message/data/services/message_socket_service.dart';
 import 'package:clain_the_run/features/message/domain/entities/message_entities.dart';
 import 'package:clain_the_run/features/message/domain/usecases/message_usecases.dart';
 import 'package:clain_the_run/features/message/presentation/state/message_state.dart';
@@ -13,6 +14,7 @@ class MessageViewModel extends Notifier<MessageState> {
   late final GetMessagesUsecase _getMessagesUsecase;
   late final SendMessageUsecase _sendMessageUsecase;
   late final MarkConversationReadUsecase _markConversationReadUsecase;
+  late final MessageSocketService _messageSocketService;
 
   @override
   MessageState build() {
@@ -25,6 +27,12 @@ class MessageViewModel extends Notifier<MessageState> {
     _markConversationReadUsecase = ref.read(
       markConversationReadUsecaseProvider,
     );
+    _messageSocketService = ref.read(messageSocketServiceProvider);
+    _messageSocketService.setOnMessage(_handleIncomingMessage);
+    Future<void>.microtask(_messageSocketService.connect);
+    ref.onDispose(() {
+      _messageSocketService.setOnMessage(null);
+    });
     return const MessageState.initial();
   }
 
@@ -73,6 +81,7 @@ class MessageViewModel extends Notifier<MessageState> {
         return null;
       },
       (conversation) {
+        _messageSocketService.joinConversation(conversation.id);
         state = state.copyWith(
           status: MessageStatus.loaded,
           activeConversation: conversation,
@@ -137,7 +146,10 @@ class MessageViewModel extends Notifier<MessageState> {
         return failure.message;
       },
       (message) {
-        final updatedMessages = [...state.messagesFor(conversationId), message];
+        final updatedMessages = _appendUniqueMessage(
+          state.messagesFor(conversationId),
+          message,
+        );
         state = state.copyWith(
           status: MessageStatus.loaded,
           messagesByConversation: {
@@ -150,6 +162,10 @@ class MessageViewModel extends Notifier<MessageState> {
         return null;
       },
     );
+  }
+
+  void leaveConversation(String conversationId) {
+    _messageSocketService.leaveConversation(conversationId);
   }
 
   Future<void> markConversationRead(String conversationId) async {
@@ -209,5 +225,64 @@ class MessageViewModel extends Notifier<MessageState> {
     );
 
     return _upsertConversation(updated);
+  }
+
+  List<MessageEntity> _appendUniqueMessage(
+    List<MessageEntity> items,
+    MessageEntity message,
+  ) {
+    final exists = items.any((item) => item.id == message.id);
+    if (exists) {
+      return [
+        for (final item in items)
+          if (item.id == message.id) message else item,
+      ];
+    }
+    return [...items, message];
+  }
+
+  void _handleIncomingMessage(MessageEntity message) {
+    final conversationMessages = _appendUniqueMessage(
+      state.messagesFor(message.conversationId),
+      message,
+    );
+
+    final existing = state.conversations.where(
+      (item) => item.id == message.conversationId,
+    );
+    final current = existing.isNotEmpty ? existing.first : null;
+    if (current == null) {
+      loadConversations(force: true);
+      return;
+    }
+
+    final isActiveConversation =
+        state.activeConversation?.id == message.conversationId;
+    final updatedConversation = MessageConversationEntity(
+      id: current.id,
+      otherUser: current.otherUser,
+      updatedAt: message.createdAt,
+      lastMessageText: message.text,
+      lastMessageSenderId: message.senderId,
+      lastMessageCreatedAt: message.createdAt,
+      unreadCount: isActiveConversation || message.isMine
+          ? 0
+          : current.unreadCount + 1,
+    );
+
+    state = state.copyWith(
+      status: MessageStatus.loaded,
+      messagesByConversation: {
+        ...state.messagesByConversation,
+        message.conversationId: conversationMessages,
+      },
+      conversations: _upsertConversation(updatedConversation),
+      activeConversation: isActiveConversation ? updatedConversation : null,
+      clearError: true,
+    );
+
+    if (isActiveConversation && !message.isMine) {
+      markConversationRead(message.conversationId);
+    }
   }
 }
