@@ -319,6 +319,8 @@ class ApiEndpoints {
   static String joinGroup(String groupId) => '$groupsBase/$groupId/join';
   static String leaveGroup(String groupId) => '$groupsBase/$groupId/leave';
   static String groupPosts(String groupId) => '$groupsBase/$groupId/posts';
+  static String groupMessages(String groupId) =>
+      '$groupsBase/$groupId/messages';
 
   // Reports (generic + admin)
   static const String reportsBase = '/reports';

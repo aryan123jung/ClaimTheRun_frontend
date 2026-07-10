@@ -65,3 +65,41 @@ class MessageEntity extends Equatable {
     isReadByOtherUser,
   ];
 }
+
+class GroupSenderEntity extends Equatable {
+  const GroupSenderEntity({
+    required this.id,
+    required this.fullname,
+    required this.username,
+    this.profileUrl,
+  });
+
+  final String id;
+  final String fullname;
+  final String username;
+  final String? profileUrl;
+
+  @override
+  List<Object?> get props => [id, fullname, username, profileUrl];
+}
+
+class GroupMessageEntity extends Equatable {
+  const GroupMessageEntity({
+    required this.id,
+    required this.communityId,
+    required this.text,
+    required this.createdAt,
+    required this.sender,
+    required this.isMine,
+  });
+
+  final String id;
+  final String communityId;
+  final String text;
+  final DateTime createdAt;
+  final GroupSenderEntity sender;
+  final bool isMine;
+
+  @override
+  List<Object?> get props => [id, communityId, text, createdAt, sender, isMine];
+}

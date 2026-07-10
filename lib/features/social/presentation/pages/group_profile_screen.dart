@@ -74,6 +74,7 @@ class _GroupProfileScreenState extends ConsumerState<GroupProfileScreen> {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => GroupMessageScreen(
+                            communityId: group.id,
                             groupName: group.name,
                             groupAvatarUrl: _groupImage(group),
                             memberCount: group.memberCount,

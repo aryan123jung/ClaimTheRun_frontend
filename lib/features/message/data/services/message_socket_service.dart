@@ -16,8 +16,10 @@ class MessageSocketService {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final Set<String> _pendingConversationJoins = <String>{};
+  final Set<String> _pendingGroupJoins = <String>{};
   io.Socket? _socket;
   void Function(MessageEntity message)? _onMessage;
+  void Function(GroupMessageEntity message)? _onGroupMessage;
   bool _isConnecting = false;
   int _socketUrlIndex = 0;
 
@@ -81,6 +83,26 @@ class MessageSocketService {
       _onMessage?.call(payload);
     });
 
+    socket.on('group:message:new', (data) {
+      if (data is! Map) return;
+      final payload = GroupMessageEntity(
+        id: data['id']?.toString() ?? '',
+        communityId: data['communityId']?.toString() ?? '',
+        text: data['text']?.toString() ?? '',
+        createdAt:
+            DateTime.tryParse(data['createdAt']?.toString() ?? '') ??
+            DateTime.now(),
+        sender: GroupSenderEntity(
+          id: data['sender']?['id']?.toString() ?? '',
+          fullname: data['sender']?['fullname']?.toString() ?? 'Runner',
+          username: data['sender']?['username']?.toString() ?? '',
+          profileUrl: data['sender']?['profileUrl']?.toString(),
+        ),
+        isMine: data['isMine'] == true,
+      );
+      _onGroupMessage?.call(payload);
+    });
+
     socket.connect();
     _socket = socket;
   }
@@ -109,6 +131,30 @@ class MessageSocketService {
     _onMessage = listener;
   }
 
+  void setOnGroupMessage(void Function(GroupMessageEntity message)? listener) {
+    _onGroupMessage = listener;
+  }
+
+  void joinGroup(String communityId) {
+    final trimmed = communityId.trim();
+    if (trimmed.isEmpty) return;
+
+    _pendingGroupJoins.add(trimmed);
+    final socket = _socket;
+    if (socket?.connected == true) {
+      socket!.emit('group:join', trimmed);
+      return;
+    }
+
+    connect();
+  }
+
+  void leaveGroup(String communityId) {
+    final trimmed = communityId.trim();
+    _pendingGroupJoins.remove(trimmed);
+    _socket?.emit('group:leave', trimmed);
+  }
+
   Future<String?> _readToken() async {
     var token = await _storage.read(key: _tokenKey);
     token ??= (await SharedPreferences.getInstance()).getString(_tokenKey);
@@ -121,6 +167,7 @@ class MessageSocketService {
     _isConnecting = false;
     _socketUrlIndex = 0;
     _pendingConversationJoins.clear();
+    _pendingGroupJoins.clear();
   }
 
   void _flushPendingConversationJoins() {
@@ -129,6 +176,9 @@ class MessageSocketService {
 
     for (final conversationId in _pendingConversationJoins) {
       socket!.emit('conversation:join', conversationId);
+    }
+    for (final communityId in _pendingGroupJoins) {
+      socket!.emit('group:join', communityId);
     }
   }
 

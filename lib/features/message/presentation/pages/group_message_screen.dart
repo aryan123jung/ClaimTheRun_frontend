@@ -1,66 +1,76 @@
+import 'package:clain_the_run/core/api/api_endpoints.dart';
+import 'package:clain_the_run/features/message/domain/entities/message_entities.dart';
+import 'package:clain_the_run/features/message/presentation/state/group_message_state.dart';
+import 'package:clain_the_run/features/message/presentation/view_model/group_message_view_model.dart';
 import 'package:clain_the_run/features/message/presentation/widgets/chatbubble.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum GroupMessageMode { chat, voice }
 
-class GroupMessageScreen extends StatefulWidget {
+class GroupMessageScreen extends ConsumerStatefulWidget {
   const GroupMessageScreen({
     super.key,
+    required this.communityId,
     required this.groupName,
     required this.groupAvatarUrl,
-    this.memberCount = 8,
+    this.memberCount = 0,
   });
 
+  final String communityId;
   final String groupName;
   final String groupAvatarUrl;
   final int memberCount;
 
   @override
-  State<GroupMessageScreen> createState() => _GroupMessageScreenState();
+  ConsumerState<GroupMessageScreen> createState() => _GroupMessageScreenState();
 }
 
-class _GroupMessageScreenState extends State<GroupMessageScreen> {
+class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   GroupMessageMode _mode = GroupMessageMode.chat;
 
-  final List<_GroupChatMessage> _messages = [
-    const _GroupChatMessage(
-      text: 'Morning team. Are we still doing the 6 AM group run?',
-      timestamp: '6:42 AM',
-      isMine: false,
-    ),
-    const _GroupChatMessage(
-      text: 'Yes, meeting at the usual spot near the gate.',
-      timestamp: '6:44 AM',
-      isMine: true,
-      isRead: true,
-    ),
-    const _GroupChatMessage(
-      text: 'Perfect. I’ll bring the new route for everyone to try.',
-      timestamp: '6:45 AM',
-      isMine: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      final notifier = ref.read(groupMessageViewModelProvider.notifier);
+      await notifier.joinGroup(widget.communityId);
+      await notifier.loadMessages(widget.communityId, force: true);
+    });
+  }
 
   @override
   void dispose() {
+    ref
+        .read(groupMessageViewModelProvider.notifier)
+        .leaveGroup(widget.communityId);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      _messages.add(
-        _GroupChatMessage(text: text, timestamp: 'Now', isMine: true),
-      );
-      _controller.clear();
-    });
+    final messenger = ScaffoldMessenger.of(context);
+    final error = await ref
+        .read(groupMessageViewModelProvider.notifier)
+        .sendMessage(widget.communityId, text);
+    if (!mounted) return;
 
+    if (error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+
+    _controller.clear();
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -75,6 +85,15 @@ class _GroupMessageScreenState extends State<GroupMessageScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final state = ref.watch(groupMessageViewModelProvider);
+    final messages = state.messagesFor(widget.communityId);
+
+    ref.listen(groupMessageViewModelProvider, (previous, next) {
+      if (next.messagesFor(widget.communityId).length != messages.length) {
+        _scrollToBottom();
+      }
+    });
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF07111A) : Colors.white,
       body: SafeArea(
@@ -94,19 +113,54 @@ class _GroupMessageScreenState extends State<GroupMessageScreen> {
             ),
             Expanded(
               child: _mode == GroupMessageMode.chat
-                  ? ListView.separated(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                      itemCount: _messages.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 14),
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        return ChatBubble(
-                          text: message.text,
-                          timestamp: message.timestamp,
-                          isMine: message.isMine,
-                          isRead: message.isRead,
+                  ? Builder(
+                      builder: (context) {
+                        if (state.status == GroupMessageStatus.loading &&
+                            messages.isEmpty) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (state.errorMessage != null && messages.isEmpty) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                state.errorMessage!,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        }
+
+                        if (messages.isEmpty) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text(
+                                'No group messages yet. Start the conversation.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        }
+
+                        return RefreshIndicator(
+                          onRefresh: () => ref
+                              .read(groupMessageViewModelProvider.notifier)
+                              .loadMessages(widget.communityId, force: true),
+                          child: ListView.separated(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                            itemCount: messages.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 14),
+                            itemBuilder: (context, index) {
+                              final message = messages[index];
+                              return _GroupMessageBubble(message: message);
+                            },
+                          ),
                         );
                       },
                     )
@@ -124,18 +178,69 @@ class _GroupMessageScreenState extends State<GroupMessageScreen> {
   }
 }
 
-class _GroupChatMessage {
-  const _GroupChatMessage({
-    required this.text,
-    required this.timestamp,
-    required this.isMine,
-    this.isRead = false,
-  });
+class _GroupMessageBubble extends StatelessWidget {
+  const _GroupMessageBubble({required this.message});
 
-  final String text;
-  final String timestamp;
-  final bool isMine;
-  final bool isRead;
+  final GroupMessageEntity message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final avatarUrl =
+        message.sender.profileUrl != null &&
+            message.sender.profileUrl!.isNotEmpty
+        ? ApiEndpoints.profileImageUrl(message.sender.profileUrl!)
+        : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(message.sender.fullname)}&background=E6F3DC&color=3B6D11';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisAlignment: message.isMine
+          ? MainAxisAlignment.end
+          : MainAxisAlignment.start,
+      children: [
+        if (!message.isMine) ...[
+          CircleAvatar(radius: 15, backgroundImage: NetworkImage(avatarUrl)),
+          const SizedBox(width: 8),
+        ],
+        Flexible(
+          child: Column(
+            crossAxisAlignment: message.isMine
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: [
+              if (!message.isMine)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 4),
+                  child: Text(
+                    message.sender.fullname,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? const Color(0xFFB3BEC8)
+                          : const Color(0xFF5A5A5A),
+                    ),
+                  ),
+                ),
+              ChatBubble(
+                text: message.text,
+                timestamp: _formatTime(message.createdAt),
+                isMine: message.isMine,
+                isRead: false,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatTime(DateTime value) {
+    final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final minute = value.minute.toString().padLeft(2, '0');
+    final suffix = value.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $suffix';
+  }
 }
 
 class _GroupMessageHeader extends StatelessWidget {
@@ -275,139 +380,38 @@ class _ModeChip extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  static const _brandGreen = Color(0xFF72B63E);
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: isSelected
-          ? (isDark ? const Color(0xFF16222E) : Colors.white)
-          : Colors.transparent,
+      color: isSelected ? const Color(0xFF72B63E) : Colors.transparent,
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
-        child: Container(
-          height: double.infinity,
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: isSelected ? _brandGreen : const Color(0xFF8B8B8B),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark ? Colors.white : const Color(0xFF4A4A4A)),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white : const Color(0xFF4A4A4A)),
               ),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected ? _brandGreen : const Color(0xFF8B8B8B),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-}
-
-class _WalkieTalkiePanel extends StatelessWidget {
-  const _WalkieTalkiePanel();
-
-  static const _brandGreen = Color(0xFF72B63E);
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 138,
-            height: 138,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _brandGreen.withValues(alpha: 0.14),
-            ),
-            alignment: Alignment.center,
-            child: Container(
-              width: 104,
-              height: 104,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: _brandGreen,
-              ),
-              child: const Icon(
-                Icons.mic_rounded,
-                size: 42,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 22),
-          Text(
-            'Hold to talk',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: isDark ? Colors.white : const Color(0xFF111111),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Use walkie-talkie mode for quick live voice updates with your group.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.45,
-              color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF7D7D7D),
-            ),
-          ),
-          const SizedBox(height: 26),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF111C26) : const Color(0xFFF7F8F5),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFF233241)
-                    : const Color(0xFFE6E6E2),
-              ),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'Last Voice Activity',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: isDark
-                        ? const Color(0xFF8FA0AE)
-                        : const Color(0xFF8A8A8A),
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Ram Khadka spoke 2m ago',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF111111),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -417,95 +421,108 @@ class _GroupMessageInputBar extends StatelessWidget {
   const _GroupMessageInputBar({required this.controller, required this.onSend});
 
   final TextEditingController controller;
-  final VoidCallback onSend;
-
-  static const _brandGreen = Color(0xFF72B63E);
+  final Future<void> Function() onSend;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        14,
-        10,
-        14,
-        10 + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF07111A) : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF07111A) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF111C26) : const Color(0xFFF7F7F5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Icons.add_rounded,
-              size: 22,
-              color: isDark ? const Color(0xFF8FA0AE) : const Color(0xFF6E6E6E),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 42, maxHeight: 120),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF111C26)
-                    : const Color(0xFFF7F7F5),
-                borderRadius: BorderRadius.circular(21),
-              ),
-              child: TextField(
-                controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Message the group...',
-                  hintStyle: TextStyle(
-                    fontSize: 14,
-                    color: isDark
-                        ? const Color(0xFF8FA0AE)
-                        : const Color(0xFF9A9A9A),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF111C26)
+                      : const Color(0xFFF4F5F2),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: TextField(
+                  controller: controller,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => onSend(),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Type a message...',
                   ),
-                  isCollapsed: true,
-                ),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.white : const Color(0xFF111111),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Material(
-            color: _brandGreen,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: onSend,
-              customBorder: const CircleBorder(),
-              child: const Padding(
-                padding: EdgeInsets.all(11),
-                child: Icon(
-                  Icons.arrow_upward_rounded,
-                  size: 20,
-                  color: Colors.white,
+            const SizedBox(width: 10),
+            Material(
+              color: const Color(0xFF72B63E),
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onSend,
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Icon(Icons.send_rounded, color: Colors.white),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WalkieTalkiePanel extends StatelessWidget {
+  const _WalkieTalkiePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.mic_rounded,
+              size: 54,
+              color: isDark ? Colors.white : const Color(0xFF3B6D11),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Walkie talkie is next.',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF111111),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Group text messaging is now live. We can wire voice push-to-talk next.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark
+                    ? const Color(0xFF9BA8B4)
+                    : const Color(0xFF6E6E6E),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

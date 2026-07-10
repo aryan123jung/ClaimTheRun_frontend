@@ -562,6 +562,7 @@ class _GroupsTab extends StatelessWidget {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => GroupMessageScreen(
+                            communityId: group.id,
                             groupName: group.name,
                             groupAvatarUrl: groupCard.iconUrl,
                             memberCount: group.memberCount,

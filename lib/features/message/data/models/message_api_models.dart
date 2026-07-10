@@ -101,3 +101,75 @@ class MessageApiModel {
     isReadByOtherUser: isReadByOtherUser,
   );
 }
+
+class GroupSenderApiModel {
+  const GroupSenderApiModel({
+    required this.id,
+    required this.fullname,
+    required this.username,
+    this.profileUrl,
+  });
+
+  final String id;
+  final String fullname;
+  final String username;
+  final String? profileUrl;
+
+  factory GroupSenderApiModel.fromJson(Map<String, dynamic> json) {
+    return GroupSenderApiModel(
+      id: json['id']?.toString() ?? '',
+      fullname: json['fullname']?.toString() ?? 'Runner',
+      username: json['username']?.toString() ?? '',
+      profileUrl: json['profileUrl']?.toString(),
+    );
+  }
+
+  GroupSenderEntity toEntity() => GroupSenderEntity(
+    id: id,
+    fullname: fullname,
+    username: username,
+    profileUrl: profileUrl,
+  );
+}
+
+class GroupMessageApiModel {
+  const GroupMessageApiModel({
+    required this.id,
+    required this.communityId,
+    required this.text,
+    required this.createdAt,
+    required this.sender,
+    required this.isMine,
+  });
+
+  final String id;
+  final String communityId;
+  final String text;
+  final DateTime createdAt;
+  final GroupSenderApiModel sender;
+  final bool isMine;
+
+  factory GroupMessageApiModel.fromJson(Map<String, dynamic> json) {
+    return GroupMessageApiModel(
+      id: json['id']?.toString() ?? '',
+      communityId: json['communityId']?.toString() ?? '',
+      text: json['text']?.toString() ?? '',
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
+      sender: GroupSenderApiModel.fromJson(
+        Map<String, dynamic>.from(json['sender'] as Map? ?? const {}),
+      ),
+      isMine: json['isMine'] == true,
+    );
+  }
+
+  GroupMessageEntity toEntity() => GroupMessageEntity(
+    id: id,
+    communityId: communityId,
+    text: text,
+    createdAt: createdAt,
+    sender: sender.toEntity(),
+    isMine: isMine,
+  );
+}
