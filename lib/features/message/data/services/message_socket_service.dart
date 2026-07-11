@@ -53,8 +53,10 @@ class MessageSocketService {
     if (_socket != null) {
       if (_socket!.connected) {
         _flushPendingConversationJoins();
+        return;
       }
-      return;
+      _socket!.dispose();
+      _socket = null;
     }
     if (_isConnecting) return;
     _isConnecting = true;
@@ -89,6 +91,12 @@ class MessageSocketService {
 
     socket.onError((_) {
       _tryNextSocketHost(socketBaseUrls);
+      _isConnecting = false;
+    });
+
+    socket.onDisconnect((_) {
+      _socket?.dispose();
+      _socket = null;
       _isConnecting = false;
     });
 

@@ -44,9 +44,16 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       <String, _VoiceParticipant>{};
   final Map<String, RTCPeerConnection> _voiceConnections =
       <String, RTCPeerConnection>{};
+  final Map<String, RTCVideoRenderer> _voiceRenderers =
+      <String, RTCVideoRenderer>{};
+  final Map<String, MediaStream> _remoteVoiceStreams = <String, MediaStream>{};
+  final Map<String, Future<RTCPeerConnection>> _voiceConnectionTasks =
+      <String, Future<RTCPeerConnection>>{};
   final Map<String, List<Map<String, dynamic>>> _pendingVoiceCandidates =
       <String, List<Map<String, dynamic>>>{};
   final Set<String> _voiceOfferedPeers = <String>{};
+  final Set<String> _voiceOfferingPeers = <String>{};
+  final Set<String> _voiceRemoteDescriptionReady = <String>{};
 
   late final MessageSocketService _messageSocketService;
   GroupMessageMode _mode = GroupMessageMode.chat;
@@ -55,6 +62,28 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
   bool _isVoiceConnecting = false;
   bool _isTalking = false;
   String? _voiceError;
+
+  void _logVoice(String message) {
+    debugPrint('[GroupVoice ${widget.communityId}] $message');
+  }
+
+  void _announceVoicePresence() {
+    final authState = ref.read(authViewModelProvider);
+    final self = authState.authEntity;
+    final selfId = self?.id ?? '';
+    if (selfId.isEmpty) {
+      _logVoice('Skipped voice join announce because self id is missing');
+      return;
+    }
+
+    _messageSocketService.joinGroupVoice(
+      communityId: widget.communityId,
+      userId: selfId,
+      name: self?.fullname ?? 'Runner',
+      avatarUrl: self?.profileUrl,
+    );
+    _logVoice('Announced voice presence for user=$selfId');
+  }
 
   @override
   void initState() {
@@ -136,22 +165,30 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     });
 
     try {
+      _logVoice('Joining voice room');
       await _messageSocketService.connect();
       _localVoiceStream ??= await navigator.mediaDevices.getUserMedia({
-        'audio': true,
+        'audio': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
         'video': false,
       });
       for (final track in _localVoiceStream?.getAudioTracks() ?? const []) {
         track.enabled = false;
+        try {
+          await Helper.setMicrophoneMute(true, track);
+        } catch (_) {}
       }
-      await Helper.setSpeakerphoneOn(true);
+      try {
+        await Helper.setSpeakerphoneOnButPreferBluetooth();
+      } catch (_) {
+        await Helper.setSpeakerphoneOn(true);
+      }
 
-      _messageSocketService.joinGroupVoice(
-        communityId: widget.communityId,
-        userId: selfId,
-        name: self?.fullname ?? 'Runner',
-        avatarUrl: self?.profileUrl,
-      );
+      _announceVoicePresence();
+      _logVoice('Local voice stream ready for user=$selfId');
 
       if (!mounted) return;
       setState(() {
@@ -166,6 +203,7 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
         );
       });
     } catch (error) {
+      _logVoice('Failed to start voice mode: $error');
       if (!mounted) return;
       setState(() {
         _isVoiceConnecting = false;
@@ -178,16 +216,34 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     _isTalking = false;
     for (final track in _localVoiceStream?.getAudioTracks() ?? const []) {
       track.enabled = false;
+      try {
+        await Helper.setMicrophoneMute(true, track);
+      } catch (_) {}
       track.stop();
     }
     for (final connection in _voiceConnections.values) {
       await connection.close();
     }
+    for (final renderer in _voiceRenderers.values) {
+      renderer.srcObject = null;
+      await renderer.dispose();
+    }
+    for (final stream in _remoteVoiceStreams.values) {
+      for (final track in stream.getTracks()) {
+        track.stop();
+      }
+      await stream.dispose();
+    }
     await _localVoiceStream?.dispose();
     _localVoiceStream = null;
     _voiceConnections.clear();
+    _voiceRenderers.clear();
+    _remoteVoiceStreams.clear();
+    _voiceConnectionTasks.clear();
     _pendingVoiceCandidates.clear();
     _voiceOfferedPeers.clear();
+    _voiceOfferingPeers.clear();
+    _voiceRemoteDescriptionReady.clear();
     _voiceParticipants.clear();
     _isVoiceJoined = false;
     _isVoiceConnecting = false;
@@ -204,8 +260,19 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       return;
     }
 
+    if (_voiceConnections.isEmpty && _voiceParticipants.length <= 1) {
+      _logVoice(
+        'No active peer connections detected, re-announcing voice presence',
+      );
+      _announceVoicePresence();
+    }
+
+    _logVoice('Push-to-talk ${enabled ? 'started' : 'stopped'}');
     for (final track in _localVoiceStream?.getAudioTracks() ?? const []) {
       track.enabled = enabled;
+      try {
+        await Helper.setMicrophoneMute(!enabled, track);
+      } catch (_) {}
     }
     if (!mounted) return;
     setState(() {
@@ -231,9 +298,14 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
   ) {
     if (communityId != widget.communityId || !mounted) return;
 
+    _logVoice(
+      'Received participants: ${participants.map((p) => p.userId).join(', ')}',
+    );
     for (final participant in participants) {
       _upsertVoiceParticipant(participant);
-      _createVoiceOffer(participant);
+      if (_shouldCreateVoiceOffer(participant.userId)) {
+        _createVoiceOffer(participant);
+      }
     }
     setState(() {});
   }
@@ -243,20 +315,37 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     GroupVoiceParticipantSocketPayload participant,
   ) {
     if (communityId != widget.communityId || !mounted) return;
+    _logVoice('User joined voice room: ${participant.userId}');
     _upsertVoiceParticipant(participant);
     setState(() {});
   }
 
   void _handleVoiceUserLeft(String communityId, String userId) {
     if (communityId != widget.communityId) return;
+    _logVoice('User left voice room: $userId');
     _voiceParticipants.remove(userId);
     final connection = _voiceConnections.remove(userId);
+    _voiceConnectionTasks.remove(userId);
+    final renderer = _voiceRenderers.remove(userId);
     final candidates = _pendingVoiceCandidates.remove(userId);
     _voiceOfferedPeers.remove(userId);
+    _voiceOfferingPeers.remove(userId);
+    _voiceRemoteDescriptionReady.remove(userId);
     if (candidates != null) {
       candidates.clear();
     }
     connection?.close();
+    if (renderer != null) {
+      renderer.srcObject = null;
+      renderer.dispose();
+    }
+    final remoteStream = _remoteVoiceStreams.remove(userId);
+    if (remoteStream != null) {
+      for (final track in remoteStream.getTracks()) {
+        track.stop();
+      }
+      remoteStream.dispose();
+    }
     if (!mounted) return;
     setState(() {});
   }
@@ -280,6 +369,7 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     if (data is! Map) return;
     final signal = Map<String, dynamic>.from(data);
     final type = signal['type']?.toString();
+    _logVoice('Received signal type=$type from=$senderUserId');
 
     if (type == 'offer') {
       final connection = await _getOrCreateVoiceConnection(participant);
@@ -288,11 +378,14 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       await connection.setRemoteDescription(
         RTCSessionDescription(sdp, 'offer'),
       );
+      _logVoice('Remote offer description set for $senderUserId');
+      _voiceRemoteDescriptionReady.add(senderUserId);
       final answer = await connection.createAnswer({
         'offerToReceiveAudio': true,
         'offerToReceiveVideo': false,
       });
       await connection.setLocalDescription(answer);
+      _logVoice('Created local answer for $senderUserId');
       _messageSocketService.signalGroupVoice({
         'communityId': widget.communityId,
         'targetUserId': senderUserId,
@@ -312,12 +405,20 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       await connection.setRemoteDescription(
         RTCSessionDescription(sdp, 'answer'),
       );
+      _logVoice('Remote answer description set for $senderUserId');
+      _voiceRemoteDescriptionReady.add(senderUserId);
+      await _flushPendingVoiceCandidates(senderUserId);
       return;
     }
 
     if (type == 'candidate') {
       final connection = _voiceConnections[senderUserId];
-      if (connection == null) {
+      if (connection == null ||
+          !_voiceRemoteDescriptionReady.contains(senderUserId)) {
+        _logVoice(
+          'Queueing ICE candidate from $senderUserId '
+          '(connection=${connection != null}, remoteReady=${_voiceRemoteDescriptionReady.contains(senderUserId)})',
+        );
         _pendingVoiceCandidates.putIfAbsent(senderUserId, () => []).add(signal);
         return;
       }
@@ -338,27 +439,51 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     );
   }
 
+  bool _shouldCreateVoiceOffer(String participantUserId) {
+    final selfId = ref.read(authViewModelProvider).authEntity?.id ?? '';
+    if (selfId.isEmpty) return false;
+    return selfId.compareTo(participantUserId) > 0;
+  }
+
   Future<void> _createVoiceOffer(
     GroupVoiceParticipantSocketPayload participant,
   ) async {
-    if (_voiceOfferedPeers.contains(participant.userId)) return;
-    final connection = await _getOrCreateVoiceConnection(participant);
-    final offer = await connection.createOffer({
-      'offerToReceiveAudio': true,
-      'offerToReceiveVideo': false,
-    });
-    await connection.setLocalDescription(offer);
-    _voiceOfferedPeers.add(participant.userId);
+    if (_voiceOfferedPeers.contains(participant.userId) ||
+        _voiceOfferingPeers.contains(participant.userId)) {
+      return;
+    }
+    _voiceOfferingPeers.add(participant.userId);
+    _logVoice('Creating offer for ${participant.userId}');
+    try {
+      final connection = await _getOrCreateVoiceConnection(participant);
+      final signalingState = await connection.getSignalingState();
+      if (signalingState != RTCSignalingState.RTCSignalingStateStable) {
+        _logVoice(
+          'Skipped offer for ${participant.userId} because signalingState=$signalingState',
+        );
+        return;
+      }
 
-    final authState = ref.read(authViewModelProvider);
-    _messageSocketService.signalGroupVoice({
-      'communityId': widget.communityId,
-      'targetUserId': participant.userId,
-      'senderUserId': authState.authEntity?.id,
-      'senderName': authState.authEntity?.fullname ?? 'Runner',
-      'senderAvatarUrl': authState.authEntity?.profileUrl,
-      'data': {'type': 'offer', 'sdp': offer.sdp},
-    });
+      final offer = await connection.createOffer({
+        'offerToReceiveAudio': true,
+        'offerToReceiveVideo': false,
+      });
+      await connection.setLocalDescription(offer);
+      _logVoice('Local offer created for ${participant.userId}');
+      _voiceOfferedPeers.add(participant.userId);
+
+      final authState = ref.read(authViewModelProvider);
+      _messageSocketService.signalGroupVoice({
+        'communityId': widget.communityId,
+        'targetUserId': participant.userId,
+        'senderUserId': authState.authEntity?.id,
+        'senderName': authState.authEntity?.fullname ?? 'Runner',
+        'senderAvatarUrl': authState.authEntity?.profileUrl,
+        'data': {'type': 'offer', 'sdp': offer.sdp},
+      });
+    } finally {
+      _voiceOfferingPeers.remove(participant.userId);
+    }
   }
 
   Future<RTCPeerConnection> _getOrCreateVoiceConnection(
@@ -367,6 +492,26 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     final existing = _voiceConnections[participant.userId];
     if (existing != null) return existing;
 
+    final existingTask = _voiceConnectionTasks[participant.userId];
+    if (existingTask != null) {
+      return existingTask;
+    }
+
+    final task = _buildVoiceConnection(participant);
+    _voiceConnectionTasks[participant.userId] = task;
+    try {
+      final connection = await task;
+      _voiceConnections[participant.userId] = connection;
+      return connection;
+    } finally {
+      _voiceConnectionTasks.remove(participant.userId);
+    }
+  }
+
+  Future<RTCPeerConnection> _buildVoiceConnection(
+    GroupVoiceParticipantSocketPayload participant,
+  ) async {
+    _logVoice('Creating peer connection for ${participant.userId}');
     final connection = await createPeerConnection(_iceServers);
     final localStream = _localVoiceStream;
     if (localStream != null) {
@@ -375,7 +520,27 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       }
     }
 
-    connection.onTrack = (_) {
+    connection.onTrack = (event) {
+      _logVoice(
+        'onTrack for ${participant.userId}: '
+        'kind=${event.track.kind}, streams=${event.streams.length}',
+      );
+      _attachRemoteVoiceStream(participant.userId, event);
+      final current = _voiceParticipants[participant.userId];
+      if (current == null || !mounted) return;
+      setState(() {
+        _voiceParticipants[participant.userId] = current.copyWith(
+          isConnected: true,
+        );
+      });
+    };
+
+    connection.onAddStream = (stream) {
+      _logVoice(
+        'onAddStream for ${participant.userId}: '
+        'audioTracks=${stream.getAudioTracks().length}',
+      );
+      _attachLegacyRemoteVoiceStream(participant.userId, stream);
       final current = _voiceParticipants[participant.userId];
       if (current == null || !mounted) return;
       setState(() {
@@ -386,6 +551,7 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     };
 
     connection.onConnectionState = (connectionState) {
+      _logVoice('Connection state for ${participant.userId}: $connectionState');
       final current = _voiceParticipants[participant.userId];
       if (current == null || !mounted) return;
       if (connectionState ==
@@ -411,6 +577,7 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
 
     connection.onIceCandidate = (candidate) {
       if (candidate.candidate == null) return;
+      _logVoice('Sending ICE candidate to ${participant.userId}');
       final authState = ref.read(authViewModelProvider);
       _messageSocketService.signalGroupVoice({
         'communityId': widget.communityId,
@@ -427,14 +594,96 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       });
     };
 
-    _voiceConnections[participant.userId] = connection;
     return connection;
+  }
+
+  Future<void> _attachRemoteVoiceStream(
+    String userId,
+    RTCTrackEvent event,
+  ) async {
+    final MediaStream stream;
+    if (event.streams.isNotEmpty) {
+      stream = event.streams.first;
+    } else {
+      stream =
+          _remoteVoiceStreams[userId] ??
+          await createLocalMediaStream('group_voice_remote_$userId');
+      if (!_remoteVoiceStreams.containsKey(userId)) {
+        _remoteVoiceStreams[userId] = stream;
+      }
+
+      final remoteTrack = event.track;
+      remoteTrack.enabled = true;
+      final existingTrackIds = stream
+          .getTracks()
+          .map((track) => track.id)
+          .toSet();
+      if (!existingTrackIds.contains(remoteTrack.id)) {
+        await stream.addTrack(remoteTrack);
+      }
+    }
+
+    final renderer =
+        _voiceRenderers[userId] ?? await _createVoiceRenderer(userId);
+    renderer.srcObject = stream;
+    _logVoice(
+      'Attached remote stream for $userId '
+      'with audioTracks=${stream.getAudioTracks().length}',
+    );
+    for (final track in stream.getAudioTracks()) {
+      track.enabled = true;
+      try {
+        await Helper.setVolume(1.0, track);
+      } catch (_) {}
+    }
+    try {
+      await Helper.setSpeakerphoneOnButPreferBluetooth();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _attachLegacyRemoteVoiceStream(
+    String userId,
+    MediaStream stream,
+  ) async {
+    _remoteVoiceStreams[userId] = stream;
+    final renderer =
+        _voiceRenderers[userId] ?? await _createVoiceRenderer(userId);
+    renderer.srcObject = stream;
+    _logVoice(
+      'Attached legacy remote stream for $userId '
+      'with audioTracks=${stream.getAudioTracks().length}',
+    );
+    for (final track in stream.getAudioTracks()) {
+      track.enabled = true;
+      try {
+        await Helper.setVolume(1.0, track);
+      } catch (_) {}
+    }
+    try {
+      await Helper.setSpeakerphoneOnButPreferBluetooth();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<RTCVideoRenderer> _createVoiceRenderer(String userId) async {
+    final renderer = RTCVideoRenderer();
+    await renderer.initialize();
+    _voiceRenderers[userId] = renderer;
+    return renderer;
   }
 
   Future<void> _flushPendingVoiceCandidates(String userId) async {
     final connection = _voiceConnections[userId];
     final queued = _pendingVoiceCandidates.remove(userId);
-    if (connection == null || queued == null) return;
+    if (connection == null ||
+        queued == null ||
+        !_voiceRemoteDescriptionReady.contains(userId)) {
+      return;
+    }
+    _logVoice('Flushing ${queued.length} queued ICE candidates for $userId');
     for (final signal in queued) {
       await _addVoiceCandidate(connection, signal);
     }
@@ -446,6 +695,7 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
   ) async {
     final candidate = signal['candidate']?.toString();
     if (candidate == null) return;
+    _logVoice('Applying ICE candidate');
     await connection.addCandidate(
       RTCIceCandidate(
         candidate,
@@ -470,98 +720,140 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF07111A) : Colors.white,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _GroupMessageHeader(
-              groupName: widget.groupName,
-              groupAvatarUrl: widget.groupAvatarUrl,
-              memberCount: widget.memberCount,
-              selectedMode: _mode,
-              onBack: () => Navigator.of(context).pop(),
-              onModeChanged: (mode) {
-                setState(() {
-                  _mode = mode;
-                });
-                if (mode == GroupMessageMode.voice) {
-                  Future<void>.microtask(_ensureVoiceMode);
-                }
-              },
-            ),
-            Expanded(
-              child: _mode == GroupMessageMode.chat
-                  ? Builder(
-                      builder: (context) {
-                        if (state.status == GroupMessageStatus.loading &&
-                            messages.isEmpty) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
+            Column(
+              children: [
+                _GroupMessageHeader(
+                  groupName: widget.groupName,
+                  groupAvatarUrl: widget.groupAvatarUrl,
+                  memberCount: widget.memberCount,
+                  selectedMode: _mode,
+                  onBack: () => Navigator.of(context).pop(),
+                  onModeChanged: (mode) {
+                    setState(() {
+                      _mode = mode;
+                    });
+                    if (mode == GroupMessageMode.voice) {
+                      Future<void>.microtask(_ensureVoiceMode);
+                    }
+                  },
+                ),
+                Expanded(
+                  child: _mode == GroupMessageMode.chat
+                      ? Builder(
+                          builder: (context) {
+                            if (state.status == GroupMessageStatus.loading &&
+                                messages.isEmpty) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
 
-                        if (state.errorMessage != null && messages.isEmpty) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(
-                                state.errorMessage!,
-                                textAlign: TextAlign.center,
+                            if (state.errorMessage != null &&
+                                messages.isEmpty) {
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                    state.errorMessage!,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+
+                            if (messages.isEmpty) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Text(
+                                    'No group messages yet. Start the conversation.',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return RefreshIndicator(
+                              onRefresh: () => ref
+                                  .read(groupMessageViewModelProvider.notifier)
+                                  .loadMessages(
+                                    widget.communityId,
+                                    force: true,
+                                  ),
+                              child: ListView.separated(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  16,
+                                  16,
+                                  16,
+                                ),
+                                itemCount: messages.length,
+                                separatorBuilder: (context, index) =>
+                                    const SizedBox(height: 14),
+                                itemBuilder: (context, index) {
+                                  final message = messages[index];
+                                  return _GroupMessageBubble(message: message);
+                                },
                               ),
+                            );
+                          },
+                        )
+                      : _WalkieTalkiePanel(
+                          isConnecting: _isVoiceConnecting,
+                          isJoined: _isVoiceJoined,
+                          isTalking: _isTalking,
+                          errorMessage: _voiceError,
+                          participants: _voiceParticipants.values.toList()
+                            ..sort(
+                              (a, b) => a.isSelf
+                                  ? -1
+                                  : b.isSelf
+                                  ? 1
+                                  : a.name.compareTo(b.name),
                             ),
-                          );
-                        }
-
-                        if (messages.isEmpty) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Text(
-                                'No group messages yet. Start the conversation.',
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          );
-                        }
-
-                        return RefreshIndicator(
-                          onRefresh: () => ref
-                              .read(groupMessageViewModelProvider.notifier)
-                              .loadMessages(widget.communityId, force: true),
-                          child: ListView.separated(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                            itemCount: messages.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: 14),
-                            itemBuilder: (context, index) {
-                              final message = messages[index];
-                              return _GroupMessageBubble(message: message);
-                            },
-                          ),
-                        );
-                      },
-                    )
-                  : _WalkieTalkiePanel(
-                      isConnecting: _isVoiceConnecting,
-                      isJoined: _isVoiceJoined,
-                      isTalking: _isTalking,
-                      errorMessage: _voiceError,
-                      participants: _voiceParticipants.values.toList()
-                        ..sort(
-                          (a, b) => a.isSelf
-                              ? -1
-                              : b.isSelf
-                              ? 1
-                              : a.name.compareTo(b.name),
+                          onPressStart: () => _setTalking(true),
+                          onPressEnd: () => _setTalking(false),
+                          onRetry: _ensureVoiceMode,
                         ),
-                      onPressStart: () => _setTalking(true),
-                      onPressEnd: () => _setTalking(false),
-                      onRetry: _ensureVoiceMode,
-                    ),
+                ),
+                if (_mode == GroupMessageMode.chat)
+                  _GroupMessageInputBar(
+                    controller: _controller,
+                    onSend: _sendMessage,
+                  ),
+              ],
             ),
-            if (_mode == GroupMessageMode.chat)
-              _GroupMessageInputBar(
-                controller: _controller,
-                onSend: _sendMessage,
+            if (_voiceRenderers.isNotEmpty)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: SizedBox(
+                    width: 1,
+                    height: 1,
+                    child: OverflowBox(
+                      maxWidth: 1,
+                      maxHeight: 1,
+                      child: Column(
+                        children: [
+                          for (final renderer in _voiceRenderers.values)
+                            SizedBox(
+                              width: 1,
+                              height: 1,
+                              child: RTCVideoView(
+                                renderer,
+                                objectFit: RTCVideoViewObjectFit
+                                    .RTCVideoViewObjectFitContain,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
           ],
         ),

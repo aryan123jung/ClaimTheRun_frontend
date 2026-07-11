@@ -82,9 +82,10 @@ class ApiEndpoints {
       return <String>[override];
     }
 
-    return _uniquePreservingOrder(
-      _candidateHosts().map((host) => 'http://$host:$port/api'),
-    );
+    return _uniquePreservingOrder([
+      ?_resolvedApiBaseUrl,
+      ..._candidateHosts().map((host) => 'http://$host:$port/api'),
+    ]);
   }
 
   static List<String> get candidateUploadBaseUrls {
@@ -93,9 +94,10 @@ class ApiEndpoints {
       return <String>[override];
     }
 
-    return _uniquePreservingOrder(
-      _candidateHosts().map((host) => 'http://$host:$port'),
-    );
+    return _uniquePreservingOrder([
+      ?_resolvedUploadBaseUrl,
+      ..._candidateHosts().map((host) => 'http://$host:$port'),
+    ]);
   }
 
   static void debugPrintResolvedEndpoints() {
