@@ -113,7 +113,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
 
                 const SizedBox(height: 10),
-                const _ProgressSection(),
+                _ProgressSection(
+                  runs: _recentRuns,
+                  isLoading: _isLoadingRecentRuns,
+                ),
 
                 const SizedBox(height: 16),
 
@@ -655,17 +658,33 @@ class _RunModeChip extends StatelessWidget {
 }
 
 class _ProgressSection extends StatelessWidget {
-  const _ProgressSection();
+  const _ProgressSection({required this.runs, required this.isLoading});
+
+  final List<RunRecord> runs;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    final totalDistanceKm = runs.fold<double>(
+      0,
+      (sum, run) => sum + (run.distanceMeters / 1000),
+    );
+    final totalDurationSeconds = runs.fold<int>(
+      0,
+      (sum, run) => sum + run.durationSeconds,
+    );
+    final totalCalories = runs.fold<int>(
+      0,
+      (sum, run) => sum + ((run.distanceMeters / 1000) * 68).round(),
+    );
+
+    return Row(
       children: [
         Expanded(
           child: _MetricCard(
             icon: Icons.route_rounded,
             iconColor: Color(0xFF6AB339),
-            value: '126.4',
+            value: isLoading ? '...' : totalDistanceKm.toStringAsFixed(1),
             label: 'Total Km',
           ),
         ),
@@ -676,7 +695,9 @@ class _ProgressSection extends StatelessWidget {
           child: _MetricCard(
             icon: Icons.timer_outlined,
             iconColor: Color(0xFFA99DFF),
-            value: '14:42:30',
+            value: isLoading
+                ? '--:--:--'
+                : _formatProgressDuration(totalDurationSeconds),
             label: 'Total Time',
           ),
         ),
@@ -684,11 +705,23 @@ class _ProgressSection extends StatelessWidget {
         SizedBox(width: 10),
 
         Expanded(
-          child: _MetricCard(emoji: '🔥', value: '9864', label: 'Calories'),
+          child: _MetricCard(
+            emoji: '🔥',
+            value: isLoading ? '...' : '$totalCalories',
+            label: 'Calories',
+          ),
         ),
       ],
     );
   }
+}
+
+String _formatProgressDuration(int totalSeconds) {
+  final duration = Duration(seconds: totalSeconds);
+  final hours = duration.inHours.toString().padLeft(2, '0');
+  final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+  final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+  return '$hours:$minutes:$seconds';
 }
 
 class _MetricCard extends StatelessWidget {
