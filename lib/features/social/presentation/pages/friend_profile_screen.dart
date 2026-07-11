@@ -1,5 +1,7 @@
 import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
 import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/social/data/services/friend_post_api_service.dart';
+import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profilestattile.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/statsheet.dart';
 import 'package:clain_the_run/features/social/presentation/models/friend_run_summary.dart';
@@ -35,16 +37,21 @@ class FriendProfileScreen extends ConsumerStatefulWidget {
 class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
   late final FriendProfileViewModel _notifier;
   final RunApiService _runApiService = RunApiService();
+  final FriendPostApiService _friendPostApiService = FriendPostApiService();
   late FriendRunSummary _summary;
+  late List<PostModel> _posts;
   bool _isLoadingSummary = true;
+  bool _isLoadingPosts = true;
 
   @override
   void initState() {
     super.initState();
     _notifier = ref.read(friendProfileViewModelProvider.notifier);
     _summary = widget.initialSummary;
+    _posts = widget.posts;
     Future<void>.microtask(_initializeProvider);
     Future<void>.microtask(_loadSummary);
+    Future<void>.microtask(_loadPosts);
   }
 
   @override
@@ -53,9 +60,12 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
     if (oldWidget.friend.id != widget.friend.id ||
         oldWidget.friendActionLabel != widget.friendActionLabel) {
       _summary = widget.initialSummary;
+      _posts = widget.posts;
       _isLoadingSummary = true;
+      _isLoadingPosts = true;
       Future<void>.microtask(_initializeProvider);
       Future<void>.microtask(_loadSummary);
+      Future<void>.microtask(_loadPosts);
     }
   }
 
@@ -82,6 +92,29 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
       if (mounted) {
         setState(() {
           _isLoadingSummary = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadPosts() async {
+    try {
+      final posts = await _friendPostApiService.fetchPostsByUserId(
+        widget.friend.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _posts = posts.map(_mapPostEntityToViewModel).toList();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _posts = widget.posts;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingPosts = false;
         });
       }
     }
@@ -167,6 +200,7 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
                 onRefresh: () async {
                   await _notifier.refresh();
                   await _loadSummary();
+                  await _loadPosts();
                 },
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -176,7 +210,7 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
                       friend: widget.friend,
                       bio: widget.bio,
                       totalRuns: _summary.totalRuns,
-                      postCount: widget.posts.length,
+                      postCount: _posts.length,
                       actionLabel: state.actionLabel,
                       isSubmitting: state.isSubmitting,
                       onFriendAction:
@@ -254,10 +288,26 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    for (final post in widget.posts) ...[
-                      PostCard(post: post),
-                      const SizedBox(height: 16),
-                    ],
+                    if (_isLoadingPosts)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_posts.isEmpty)
+                      Text(
+                        'No posts yet.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark
+                              ? const Color(0xFF9BA8B4)
+                              : const Color(0xFF8A8A8A),
+                        ),
+                      )
+                    else
+                      for (final post in _posts) ...[
+                        PostCard(post: post),
+                        const SizedBox(height: 16),
+                      ],
                   ],
                 ),
               ),
@@ -267,6 +317,25 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
       ),
     );
   }
+}
+
+PostModel _mapPostEntityToViewModel(PostEntity post) {
+  final authorAvatarUrl =
+      post.author.profileUrl != null && post.author.profileUrl!.isNotEmpty
+      ? post.author.profileUrl!
+      : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(post.author.fullname)}&background=E6F3DC&color=3B6D11';
+
+  return PostModel(
+    id: post.id,
+    authorName: post.author.fullname,
+    authorAvatarUrl: authorAvatarUrl,
+    timestamp: formatPostTimestamp(post.createdAt),
+    caption: post.caption,
+    imageUrl: post.imageUrl,
+    likeCount: post.likeCount,
+    commentCount: post.commentCount,
+    isLiked: post.isLiked,
+  );
 }
 
 class _FriendHeroCard extends StatelessWidget {

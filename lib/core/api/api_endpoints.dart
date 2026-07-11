@@ -273,6 +273,7 @@ class ApiEndpoints {
   // Posts
   static const String posts = '/post';
   static const String myPosts = '/post/me';
+  static String userPosts(String userId) => '/post/user/$userId';
   static String likePost(String id) => '/post/$id/like';
   static String postComments(String id) => '/post/$id/comments';
   static String deletePostComment(String postId, String commentId) =>
