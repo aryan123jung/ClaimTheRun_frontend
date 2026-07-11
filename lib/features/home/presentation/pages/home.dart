@@ -6,6 +6,8 @@ import 'package:clain_the_run/features/home/presentation/widgets/activitycard.da
 import 'package:clain_the_run/features/home/presentation/widgets/rundetails.dart';
 import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
+import 'package:clain_the_run/features/leaderboard/map/presentation/pages/group_run_dashboard_screen.dart';
+import 'package:clain_the_run/features/leaderboard/map/presentation/pages/map.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -91,11 +93,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     });
                   },
                   onStartRunPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Starting ${_selectedRunMode.name} run...',
-                        ),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => _selectedRunMode == RunMode.solo
+                            ? const MapScreen()
+                            : const GroupRunDashboardScreen(),
                       ),
                     );
                   },
