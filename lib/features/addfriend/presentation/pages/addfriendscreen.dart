@@ -4,6 +4,7 @@ import 'package:clain_the_run/features/addfriend/presentation/pages/friend_reque
 import 'package:clain_the_run/features/addfriend/presentation/state/addfriend_state.dart';
 import 'package:clain_the_run/features/addfriend/presentation/view_model/addfriend_view_model.dart';
 import 'package:clain_the_run/features/addfriend/presentation/widgets/add_friend_user_card.dart';
+import 'package:clain_the_run/features/social/presentation/models/friend_run_summary.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
@@ -139,11 +140,10 @@ class _AddFriendScreenState extends ConsumerState<AddFriendScreen> {
                           name: user.fullname,
                           avatarUrl: avatarUrl,
                           totalKm: 0,
-                          territories: user.mutualFriends,
+                          territories: 0,
                         ),
                         bio: '@${user.username}',
-                        totalRuns: 0,
-                        postCount: 0,
+                        initialSummary: const FriendRunSummary.empty(),
                         posts: const <PostModel>[],
                         friendActionLabel: switch (user.friendStatus) {
                           'FRIEND' => 'Remove Friend',

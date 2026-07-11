@@ -1,6 +1,8 @@
 import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
+import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profilestattile.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/statsheet.dart';
+import 'package:clain_the_run/features/social/presentation/models/friend_run_summary.dart';
 import 'package:clain_the_run/features/social/presentation/view_model/friend_profile_view_model.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart';
@@ -12,9 +14,8 @@ class FriendProfileScreen extends ConsumerStatefulWidget {
     super.key,
     required this.friend,
     required this.posts,
-    this.bio = 'Just chilllll guysss',
-    this.totalRuns = 20,
-    this.postCount = 1,
+    this.bio = 'Add a short bio from Edit Profile.',
+    this.initialSummary = const FriendRunSummary.empty(),
     this.friendActionLabel,
     this.onFriendAction,
   });
@@ -22,8 +23,7 @@ class FriendProfileScreen extends ConsumerStatefulWidget {
   final FriendModel friend;
   final List<PostModel> posts;
   final String bio;
-  final int totalRuns;
-  final int postCount;
+  final FriendRunSummary initialSummary;
   final String? friendActionLabel;
   final Future<String?> Function(String currentLabel)? onFriendAction;
 
@@ -34,12 +34,17 @@ class FriendProfileScreen extends ConsumerStatefulWidget {
 
 class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
   late final FriendProfileViewModel _notifier;
+  final RunApiService _runApiService = RunApiService();
+  late FriendRunSummary _summary;
+  bool _isLoadingSummary = true;
 
   @override
   void initState() {
     super.initState();
     _notifier = ref.read(friendProfileViewModelProvider.notifier);
+    _summary = widget.initialSummary;
     Future<void>.microtask(_initializeProvider);
+    Future<void>.microtask(_loadSummary);
   }
 
   @override
@@ -47,7 +52,10 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.friend.id != widget.friend.id ||
         oldWidget.friendActionLabel != widget.friendActionLabel) {
+      _summary = widget.initialSummary;
+      _isLoadingSummary = true;
       Future<void>.microtask(_initializeProvider);
+      Future<void>.microtask(_loadSummary);
     }
   }
 
@@ -58,6 +66,27 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
     );
   }
 
+  Future<void> _loadSummary() async {
+    try {
+      final runs = await _runApiService.fetchRunsByUserId(widget.friend.id);
+      if (!mounted) return;
+      setState(() {
+        _summary = FriendRunSummary.fromRuns(runs);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _summary = widget.initialSummary;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSummary = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(friendProfileViewModelProvider);
@@ -66,31 +95,31 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
       ProfileStatModel(
         icon: Icons.show_chart_rounded,
         iconColor: const Color(0xFF72B63E),
-        value: widget.friend.totalKm.toStringAsFixed(1),
+        value: _isLoadingSummary ? '...' : _summary.totalKm.toStringAsFixed(1),
         label: 'Total Km',
       ),
-      const ProfileStatModel(
+      ProfileStatModel(
         icon: Icons.timer_outlined,
         iconColor: Color(0xFF3D6FE0),
-        value: '24:36:14',
+        value: _isLoadingSummary ? '--:--:--' : _summary.totalTime,
         label: 'Total Time',
       ),
-      const ProfileStatModel(
+      ProfileStatModel(
         icon: Icons.speed_rounded,
         iconColor: Color(0xFFB6A72E),
-        value: "6'21\"",
+        value: _isLoadingSummary ? '--' : _summary.avgPace,
         label: 'Avg Pace',
       ),
-      const ProfileStatModel(
+      ProfileStatModel(
         icon: Icons.local_fire_department_rounded,
         iconColor: Color(0xFFE08A2E),
-        value: '19,860',
+        value: _isLoadingSummary ? '...' : _summary.formattedCalories,
         label: 'Calories',
       ),
       ProfileStatModel(
         icon: Icons.directions_run_rounded,
         iconColor: const Color(0xFFB03A3A),
-        value: '${widget.totalRuns}',
+        value: _isLoadingSummary ? '...' : '${_summary.totalRuns}',
         label: 'Total Runs',
       ),
     ];
@@ -135,7 +164,10 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
             ),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: _notifier.refresh,
+                onRefresh: () async {
+                  await _notifier.refresh();
+                  await _loadSummary();
+                },
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
@@ -143,8 +175,8 @@ class _FriendProfileScreenState extends ConsumerState<FriendProfileScreen> {
                     _FriendHeroCard(
                       friend: widget.friend,
                       bio: widget.bio,
-                      totalRuns: widget.totalRuns,
-                      postCount: widget.postCount,
+                      totalRuns: _summary.totalRuns,
+                      postCount: widget.posts.length,
                       actionLabel: state.actionLabel,
                       isSubmitting: state.isSubmitting,
                       onFriendAction:

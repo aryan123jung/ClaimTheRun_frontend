@@ -5,11 +5,14 @@ import 'package:clain_the_run/features/addfriend/presentation/pages/friend_reque
 import 'package:clain_the_run/features/addfriend/presentation/state/addfriend_state.dart';
 import 'package:clain_the_run/features/addfriend/presentation/view_model/addfriend_view_model.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
+import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/messagescreen.dart';
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
+import 'package:clain_the_run/features/social/presentation/models/friend_profile_bundle.dart';
+import 'package:clain_the_run/features/social/presentation/models/friend_run_summary.dart';
 import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/pages/group_search_screen.dart';
@@ -36,6 +39,8 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
   static const _activeTextGreen = Color(0xFF3B6D11);
 
   late final TabController _tabController;
+  final RunApiService _runApiService = RunApiService();
+  Map<String, FriendRunSummary> _friendSummaries = const {};
 
   @override
   void initState() {
@@ -68,6 +73,7 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
       authViewModelProvider.select((state) => state.authEntity?.id),
     );
     final friendState = ref.watch(addFriendViewModelProvider);
+    _syncFriendSummaries(friendState.friends);
     final posts = socialState.posts
         .where(
           (post) => post.author.id != currentUserId && post.isLiked == false,
@@ -257,6 +263,8 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
                   ),
                   _FriendsTab(
                     friends: friendState.friends,
+                    friendSummaries: _friendSummaries,
+                    socialPosts: socialState.posts,
                     isLoading:
                         friendState.status == AddFriendStatus.loading &&
                         friendState.friends.isEmpty,
@@ -291,6 +299,55 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
         ),
       ),
     );
+  }
+
+  void _syncFriendSummaries(List<FriendUserEntity> friends) {
+    final friendIds = friends.map((friend) => friend.id).toSet();
+    final knownIds = _friendSummaries.keys.toSet();
+    if (friendIds.isEmpty) {
+      if (_friendSummaries.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            _friendSummaries = const {};
+          });
+        });
+      }
+      return;
+    }
+
+    if (!friendIds.difference(knownIds).isNotEmpty &&
+        !knownIds.difference(friendIds).isNotEmpty) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFriendSummaries(friends);
+    });
+  }
+
+  Future<void> _loadFriendSummaries(List<FriendUserEntity> friends) async {
+    final activeIds = friends.map((friend) => friend.id).toSet();
+    final summaries = <String, FriendRunSummary>{};
+
+    await Future.wait(
+      friends.map((friend) async {
+        try {
+          final runs = await _runApiService.fetchRunsByUserId(friend.id);
+          summaries[friend.id] = FriendRunSummary.fromRuns(runs);
+        } catch (_) {
+          summaries[friend.id] = const FriendRunSummary.empty();
+        }
+      }),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _friendSummaries = {
+        for (final entry in summaries.entries)
+          if (activeIds.contains(entry.key)) entry.key: entry.value,
+      };
+    });
   }
 }
 
@@ -351,6 +408,8 @@ class _FeedTab extends StatelessWidget {
 class _FriendsTab extends StatelessWidget {
   const _FriendsTab({
     required this.friends,
+    required this.friendSummaries,
+    required this.socialPosts,
     this.isLoading = false,
     this.errorMessage,
     this.onRetry,
@@ -358,6 +417,8 @@ class _FriendsTab extends StatelessWidget {
   });
 
   final List<FriendUserEntity> friends;
+  final Map<String, FriendRunSummary> friendSummaries;
+  final List<PostEntity> socialPosts;
   final bool isLoading;
   final String? errorMessage;
   final VoidCallback? onRetry;
@@ -433,34 +494,48 @@ class _FriendsTab extends StatelessWidget {
             )
           else
             for (final friend in friends) ...[
-              FriendCard(
-                friend: _mapFriendUserToCard(friend),
-                onMessage: () {
-                  final cardFriend = _mapFriendUserToCard(friend);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => ChatScreen(
-                        friendId: friend.id,
-                        friendName: friend.fullname,
-                        friendUsername: friend.username,
-                        avatarUrl: cardFriend.avatarUrl,
-                      ),
-                    ),
+              Builder(
+                builder: (context) {
+                  final cardFriend = _mapFriendUserToCard(
+                    friend,
+                    friendSummaries[friend.id] ??
+                        const FriendRunSummary.empty(),
                   );
-                },
-                onTap: () {
-                  final cardFriend = _mapFriendUserToCard(friend);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => FriendProfileScreen(
-                        friend: cardFriend,
-                        bio: '@${friend.username}',
-                        totalRuns: 0,
-                        postCount: 0,
-                        posts: const <PostModel>[],
-                        friendActionLabel: 'Remove Friend',
-                      ),
-                    ),
+                  final profileBundle = _buildFriendProfileBundle(
+                    friend: friend,
+                    posts: socialPosts,
+                    summary:
+                        friendSummaries[friend.id] ??
+                        const FriendRunSummary.empty(),
+                  );
+
+                  return FriendCard(
+                    friend: cardFriend,
+                    onMessage: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ChatScreen(
+                            friendId: friend.id,
+                            friendName: friend.fullname,
+                            friendUsername: friend.username,
+                            avatarUrl: cardFriend.avatarUrl,
+                          ),
+                        ),
+                      );
+                    },
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => FriendProfileScreen(
+                            friend: cardFriend,
+                            bio: '@${friend.username}',
+                            posts: profileBundle.posts,
+                            initialSummary: profileBundle.summary,
+                            friendActionLabel: 'Remove Friend',
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -472,16 +547,32 @@ class _FriendsTab extends StatelessWidget {
   }
 }
 
-FriendModel _mapFriendUserToCard(FriendUserEntity friend) {
+FriendModel _mapFriendUserToCard(
+  FriendUserEntity friend,
+  FriendRunSummary summary,
+) {
   return FriendModel(
     id: friend.id,
     name: friend.fullname,
     avatarUrl: (friend.profileUrl != null && friend.profileUrl!.isNotEmpty)
         ? ApiEndpoints.profileImageUrl(friend.profileUrl!)
         : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(friend.fullname)}&background=E6F3DC&color=3B6D11',
-    totalKm: 0,
-    territories: friend.mutualFriends,
+    totalKm: summary.totalKm,
+    territories: summary.territories,
   );
+}
+
+FriendProfileBundle _buildFriendProfileBundle({
+  required FriendUserEntity friend,
+  required List<PostEntity> posts,
+  required FriendRunSummary summary,
+}) {
+  final friendPosts = posts
+      .where((post) => post.author.id == friend.id)
+      .map(_mapPostEntityToViewModel)
+      .toList();
+
+  return FriendProfileBundle(summary: summary, posts: friendPosts);
 }
 
 class _GroupsTab extends StatelessWidget {

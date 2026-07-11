@@ -55,6 +55,16 @@ class RunApiService {
         .toList();
   }
 
+  Future<List<RunRecord>> fetchRunsByUserId(String userId) async {
+    final response = await _client.get('/runs/user/$userId');
+    final raw = response.data['data'];
+    if (raw is! List) return const <RunRecord>[];
+    return raw
+        .whereType<Map>()
+        .map((item) => RunRecord.fromJson(item.cast<String, dynamic>()))
+        .toList();
+  }
+
   Future<List<RunRecord>> fetchTerritories() async {
     final response = await _client.get('/runs/territories');
     final raw = response.data['data'];
