@@ -345,8 +345,8 @@ class _WeekdayProgress extends StatelessWidget {
         const SizedBox(height: 8),
 
         Container(
-          width: 28,
-          height: 28,
+          width: 24,
+          height: 24,
           decoration: BoxDecoration(
             color: done ? const Color(0xFF72DB00) : Colors.transparent,
             shape: BoxShape.circle,
@@ -356,7 +356,7 @@ class _WeekdayProgress extends StatelessWidget {
             ),
           ),
           child: done
-              ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
+              ? const Icon(Icons.check_rounded, color: Colors.white, size: 15)
               : null,
         ),
       ],
@@ -373,17 +373,17 @@ class _DistanceRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = (distanceKm / 30).clamp(0.0, 1.0);
     return SizedBox(
-      width: 96,
-      height: 96,
+      width: 108,
+      height: 108,
       child: Stack(
         alignment: Alignment.center,
         children: [
           SizedBox(
-            width: 86,
-            height: 86,
+            width: 98,
+            height: 98,
             child: CircularProgressIndicator(
               value: progress,
-              strokeWidth: 6,
+              strokeWidth: 7,
               backgroundColor: const Color(0xFF33303B),
               valueColor: const AlwaysStoppedAnimation<Color>(
                 Color(0xFF56B846),
@@ -398,7 +398,7 @@ class _DistanceRing extends StatelessWidget {
                 distanceKm.toStringAsFixed(1),
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
+                  fontSize: 17,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -406,7 +406,7 @@ class _DistanceRing extends StatelessWidget {
                 'km',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
