@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:clain_the_run/app/theme_provider.dart';
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
+import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profileheadercard.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profilestattile.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/statsheet.dart';
@@ -24,49 +26,9 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  static const _stats = [
-    ProfileStatModel(
-      icon: Icons.show_chart_rounded,
-      iconColor: Color(0xFF72B63E),
-      value: '256.4',
-      label: 'Total Km',
-    ),
-    ProfileStatModel(
-      icon: Icons.timer_outlined,
-      iconColor: Color(0xFF3D6FE0),
-      value: '24:36:14',
-      label: 'Total Time',
-    ),
-    ProfileStatModel(
-      icon: Icons.speed_rounded,
-      iconColor: Color(0xFFB6A72E),
-      value: "6'21\"",
-      label: 'Avg Pace',
-    ),
-    ProfileStatModel(
-      icon: Icons.local_fire_department_rounded,
-      iconColor: Color(0xFFE08A2E),
-      value: '19,860',
-      label: 'Calories',
-    ),
-    ProfileStatModel(
-      icon: Icons.directions_run_rounded,
-      iconColor: Color(0xFFB03A3A),
-      value: '47',
-      label: 'Total Runs',
-    ),
-  ];
-
-  static const _weekDays = [
-    DailyDistance(label: 'Mon', km: 6.2),
-    DailyDistance(label: 'Tue', km: 8.1),
-    DailyDistance(label: 'Wed', km: 5.0),
-    DailyDistance(label: 'Thu', km: 7.3),
-    DailyDistance(label: 'Fri', km: 10.2),
-    DailyDistance(label: 'Sat', km: 12.6),
-    DailyDistance(label: 'Sun', km: 9.0),
-  ];
+  final RunApiService _runApiService = RunApiService();
+  List<RunRecord> _runs = const <RunRecord>[];
+  bool _isLoadingRuns = true;
 
   @override
   void initState() {
@@ -77,6 +39,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     Future.microtask(
       () => ref.read(socialViewModelProvider.notifier).loadMyPosts(),
     );
+    Future.microtask(_loadRuns);
+  }
+
+  Future<void> _loadRuns() async {
+    try {
+      final runs = await _runApiService.fetchMyRuns();
+      if (!mounted) return;
+      setState(() {
+        _runs = runs;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _runs = const <RunRecord>[];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingRuns = false;
+        });
+      }
+    }
   }
 
   @override
@@ -99,6 +83,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final avatarUrl = (user?.profileUrl != null && user!.profileUrl!.isNotEmpty)
         ? ApiEndpoints.profileImageUrl(user.profileUrl!)
         : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(fullName)}&background=E6F3DC&color=3B6D11';
+    final profileStats = _buildStats(_runs);
+    final weeklyStats = _buildWeeklyStats(_runs);
+    final territoryCount = _runs.where((run) => run.hasTerritory).length;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -156,8 +143,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 name: fullName,
                 bio: bio,
                 avatarUrl: avatarUrl,
-                runCount: 47,
-                territoryCount: 1,
+                runCount: _runs.length,
+                territoryCount: territoryCount,
                 postCount: myPosts.length,
                 onEditAvatar: _openEditProfileSheet,
                 onEditProfile: _openEditProfileSheet,
@@ -178,7 +165,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () => showAllStatsSheet(context, stats: _stats),
+                      onTap: () =>
+                          showAllStatsSheet(context, stats: profileStats),
                       borderRadius: BorderRadius.circular(20),
                       child: const Padding(
                         padding: EdgeInsets.symmetric(
@@ -230,7 +218,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Row(
                   children: [
                     for (var i = 0; i < 3; i++)
-                      ProfileStatTile(stat: _stats[i], showDivider: i != 2),
+                      ProfileStatTile(
+                        stat: profileStats[i],
+                        showDivider: i != 2,
+                      ),
                   ],
                 ),
               ),
@@ -245,10 +236,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 10),
               WeeklyActivityChart(
-                days: _weekDays,
-                totalDistanceKm: 57.8,
-                totalTime: '5:42:18',
-                avgPace: "5'55\" / km",
+                days: weeklyStats.days,
+                totalDistanceKm: weeklyStats.totalDistanceKm,
+                totalTime: weeklyStats.totalTime,
+                avgPace: '${weeklyStats.avgPace} / km',
               ),
               const SizedBox(height: 22),
               Row(
@@ -309,6 +300,124 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // The profile header is already kept in sync after edit, so refreshing
     // should only reload the posts list instead of re-fetching everything.
     await ref.read(socialViewModelProvider.notifier).loadMyPosts(force: true);
+    await _loadRuns();
+  }
+
+  List<ProfileStatModel> _buildStats(List<RunRecord> runs) {
+    final totalDistanceKm = runs.fold<double>(
+      0,
+      (sum, run) => sum + (run.distanceMeters / 1000),
+    );
+    final totalDurationSeconds = runs.fold<int>(
+      0,
+      (sum, run) => sum + run.durationSeconds,
+    );
+    final totalDistanceMeters = runs.fold<double>(
+      0,
+      (sum, run) => sum + run.distanceMeters,
+    );
+    final totalCalories = runs.fold<int>(
+      0,
+      (sum, run) => sum + ((run.distanceMeters / 1000) * 68).round(),
+    );
+
+    return [
+      ProfileStatModel(
+        icon: Icons.show_chart_rounded,
+        iconColor: const Color(0xFF72B63E),
+        value: _isLoadingRuns ? '...' : totalDistanceKm.toStringAsFixed(1),
+        label: 'Total Km',
+      ),
+      ProfileStatModel(
+        icon: Icons.timer_outlined,
+        iconColor: const Color(0xFF3D6FE0),
+        value: _isLoadingRuns
+            ? '--:--:--'
+            : _formatDuration(totalDurationSeconds),
+        label: 'Total Time',
+      ),
+      ProfileStatModel(
+        icon: Icons.speed_rounded,
+        iconColor: const Color(0xFFB6A72E),
+        value: _isLoadingRuns
+            ? '--'
+            : _formatPace(totalDistanceMeters, totalDurationSeconds),
+        label: 'Avg Pace',
+      ),
+      ProfileStatModel(
+        icon: Icons.local_fire_department_rounded,
+        iconColor: const Color(0xFFE08A2E),
+        value: _isLoadingRuns ? '...' : _formatNumber(totalCalories),
+        label: 'Calories',
+      ),
+      ProfileStatModel(
+        icon: Icons.directions_run_rounded,
+        iconColor: const Color(0xFFB03A3A),
+        value: _isLoadingRuns ? '...' : '${runs.length}',
+        label: 'Total Runs',
+      ),
+    ];
+  }
+
+  _WeeklyProfileStats _buildWeeklyStats(List<RunRecord> runs) {
+    final now = DateTime.now();
+    final startOfWeek = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
+    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final dailyDistance = List<double>.filled(7, 0);
+    double totalDistanceKm = 0;
+    int totalDurationSeconds = 0;
+
+    for (final run in runs) {
+      final createdAt = run.createdAt?.toLocal();
+      if (createdAt == null) continue;
+      final day = DateTime(createdAt.year, createdAt.month, createdAt.day);
+      final diff = day.difference(startOfWeek).inDays;
+      if (diff < 0 || diff > 6) continue;
+      final distanceKm = run.distanceMeters / 1000;
+      dailyDistance[diff] += distanceKm;
+      totalDistanceKm += distanceKm;
+      totalDurationSeconds += run.durationSeconds;
+    }
+
+    return _WeeklyProfileStats(
+      days: [
+        for (int index = 0; index < 7; index++)
+          DailyDistance(label: labels[index], km: dailyDistance[index]),
+      ],
+      totalDistanceKm: totalDistanceKm,
+      totalTime: _formatDuration(totalDurationSeconds),
+      avgPace: _formatPace(totalDistanceKm * 1000, totalDurationSeconds),
+    );
+  }
+
+  String _formatDuration(int totalSeconds) {
+    final duration = Duration(seconds: totalSeconds);
+    final hours = duration.inHours.toString().padLeft(2, '0');
+    final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+
+  String _formatPace(double distanceMeters, int durationSeconds) {
+    if (distanceMeters <= 0 || durationSeconds <= 0) return "0'00\"";
+    final secondsPerKm = durationSeconds / (distanceMeters / 1000);
+    final minutes = secondsPerKm ~/ 60;
+    final seconds = (secondsPerKm.round() % 60).toString().padLeft(2, '0');
+    return "$minutes'$seconds\"";
+  }
+
+  String _formatNumber(int value) {
+    final digits = value.toString();
+    final parts = <String>[];
+    for (int end = digits.length; end > 0; end -= 3) {
+      final start = (end - 3).clamp(0, digits.length);
+      parts.insert(0, digits.substring(start, end));
+    }
+    return parts.join(',');
   }
 
   Future<void> _openEditProfileSheet() async {
@@ -592,6 +701,20 @@ class _ProfileInputField extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WeeklyProfileStats {
+  const _WeeklyProfileStats({
+    required this.days,
+    required this.totalDistanceKm,
+    required this.totalTime,
+    required this.avgPace,
+  });
+
+  final List<DailyDistance> days;
+  final double totalDistanceKm;
+  final String totalTime;
+  final String avgPace;
 }
 
 class _ProfileImagePickerCard extends StatelessWidget {
