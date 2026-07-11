@@ -4,6 +4,8 @@ import 'package:clain_the_run/features/notification/presentation/pages/notificat
 import 'package:clain_the_run/features/notification/presentation/view_model/notification_view_model.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/rundetails.dart';
+import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -19,6 +21,36 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   RunMode _selectedRunMode = RunMode.solo;
+  final RunApiService _runApiService = RunApiService();
+  List<RunRecord> _recentRuns = const <RunRecord>[];
+  bool _isLoadingRecentRuns = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentRuns();
+  }
+
+  Future<void> _loadRecentRuns() async {
+    try {
+      final runs = await _runApiService.fetchMyRuns();
+      if (!mounted) return;
+      setState(() {
+        _recentRuns = runs;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _recentRuns = const <RunRecord>[];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingRecentRuns = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             await ref
                 .read(notificationViewModelProvider.notifier)
                 .loadNotifications();
+            await _loadRecentRuns();
             messenger.showSnackBar(
               const SnackBar(content: Text('Home refreshed.')),
             );
@@ -94,7 +127,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
 
                 const SizedBox(height: 10),
-                const _RecentActivitySection(),
+                _RecentActivitySection(
+                  runs: _recentRuns,
+                  isLoading: _isLoadingRecentRuns,
+                ),
 
                 const SizedBox(height: 24),
               ],
@@ -725,39 +761,55 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _RecentActivitySection extends StatelessWidget {
-  const _RecentActivitySection();
+  const _RecentActivitySection({required this.runs, required this.isLoading});
 
-  static const _activities = [
-    ActivityModel(
-      title: 'Morning Run',
-      subtitle: 'Today, 7:15 AM',
-      distanceKm: 5.21,
-      totalTime: '00:31:42',
-      avgPace: "6'05\"",
-      calories: 356,
-    ),
-    ActivityModel(
-      title: 'First Territory Run',
-      subtitle: 'May 17, 10:15 AM',
-      distanceKm: 57.00,
-      totalTime: '05:42:18',
-      avgPace: "5'55\"",
-      calories: 1986,
-    ),
-  ];
+  final List<RunRecord> runs;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activities = runs.map(ActivityModel.fromRunRecord).toList();
+
+    if (isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (activities.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF111C26) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? const Color(0xFF233241) : const Color(0xFFD9D9D9),
+          ),
+        ),
+        child: Text(
+          'Saved runs will show up here after you finish and save a run.',
+          style: TextStyle(
+            color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF6E6E6E),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
     return Column(
       children: [
-        for (int index = 0; index < _activities.length; index++) ...[
+        for (int index = 0; index < activities.length; index++) ...[
           ActivityCard(
-            activity: _activities[index],
+            activity: activities[index],
             onTap: () {
-              showRunDetailsSheet(context, activity: _activities[index]);
+              showRunDetailsSheet(context, activity: activities[index]);
             },
           ),
-          if (index != _activities.length - 1) const SizedBox(height: 12),
+          if (index != activities.length - 1) const SizedBox(height: 12),
         ],
       ],
     );
