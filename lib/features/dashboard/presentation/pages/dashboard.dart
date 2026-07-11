@@ -1,6 +1,6 @@
 import 'package:clain_the_run/features/home/presentation/pages/home.dart';
 import 'package:clain_the_run/features/leaderboard/presentation/pages/leaderboard.dart';
-import 'package:clain_the_run/features/leaderboard/map/presentation/pages/map.dart';
+import 'package:clain_the_run/features/map/presentation/pages/map.dart';
 import 'package:clain_the_run/features/profile/presentation/pages/profile.dart';
 import 'package:clain_the_run/features/social/presentation/pages/social.dart';
 import 'package:flutter/material.dart';

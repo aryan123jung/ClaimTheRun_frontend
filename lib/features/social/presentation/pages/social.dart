@@ -5,7 +5,7 @@ import 'package:clain_the_run/features/addfriend/presentation/pages/friend_reque
 import 'package:clain_the_run/features/addfriend/presentation/state/addfriend_state.dart';
 import 'package:clain_the_run/features/addfriend/presentation/view_model/addfriend_view_model.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';

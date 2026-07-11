@@ -3,9 +3,11 @@ import 'dart:math';
 
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/message/data/services/message_socket_service.dart';
+import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
+import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
 import 'package:clain_the_run/features/social/presentation/state/social_state.dart';
 import 'package:clain_the_run/features/social/presentation/view_model/social_view_model.dart';
 import 'package:flutter/material.dart';
@@ -252,6 +254,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(
+      () => ref.read(socialViewModelProvider.notifier).loadGroups(force: true),
+    );
     _messageSocketService = ref.read(messageSocketServiceProvider);
     _messageSocketService.setOnGroupRunParticipants(_handleRunParticipants);
     _messageSocketService.setOnGroupRunUserJoined(_handleRunParticipantJoined);
@@ -653,6 +658,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final availableGroups = ref.watch(
+      socialViewModelProvider.select((state) => state.groups),
+    );
     final groupImage =
         widget.group.imageUrl != null && widget.group.imageUrl!.isNotEmpty
         ? ApiEndpoints.uploadUrl(widget.group.imageUrl!)
@@ -775,7 +783,59 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 6),
+                  _HeaderIconButton(
+                    icon: Icons.swap_horiz_rounded,
+                    onTap: availableGroups.isEmpty
+                        ? null
+                        : () => _openGroupSelector(availableGroups),
+                  ),
+                  const SizedBox(width: 8),
+                  _HeaderIconButton(
+                    icon: Icons.info_outline_rounded,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              GroupProfileScreen(group: widget.group),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _HeaderIconButton(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => GroupMessageScreen(
+                            communityId: widget.group.id,
+                            groupName: widget.group.name,
+                            groupAvatarUrl:
+                                groupImage ??
+                                'https://ui-avatars.com/api/?name=${Uri.encodeComponent(widget.group.name)}&background=E6F3DC&color=3B6D11',
+                            memberCount: widget.group.memberCount,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            top: MediaQuery.of(context).padding.top + 92,
+            child: SafeArea(
+              bottom: false,
+              child: _SelectedGroupBar(
+                group: widget.group,
+                activeCount: _activeParticipants.length,
+                onChangeGroup: availableGroups.isEmpty
+                    ? null
+                    : () => _openGroupSelector(availableGroups),
               ),
             ),
           ),
@@ -809,6 +869,24 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openGroupSelector(List<GroupEntity> groups) async {
+    final selected = await showModalBottomSheet<GroupEntity>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) =>
+          _GroupSelectorSheet(groups: groups, currentGroupId: widget.group.id),
+    );
+
+    if (selected == null || !mounted || selected.id == widget.group.id) {
+      return;
+    }
+
+    _messageSocketService.leaveGroupRun(widget.group.id);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => GroupRunLiveScreen(group: selected)),
     );
   }
 }
@@ -1404,6 +1482,251 @@ class _ActiveGroupMembersCard extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedGroupBar extends StatelessWidget {
+  const _SelectedGroupBar({
+    required this.group,
+    required this.activeCount,
+    this.onChangeGroup,
+  });
+
+  final GroupEntity group;
+  final int activeCount;
+  final VoidCallback? onChangeGroup;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xE6101B25) : const Color(0xF8FFFFFF),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE2EADF),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Selected Group',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? const Color(0xFF93A7B6)
+                        : const Color(0xFF6E7771),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  group.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF111111),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF31C861).withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              '$activeCount active',
+              style: const TextStyle(
+                color: Color(0xFF31C861),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          if (onChangeGroup != null) ...[
+            const SizedBox(width: 10),
+            TextButton(
+              onPressed: onChangeGroup,
+              child: const Text(
+                'Change',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({required this.icon, this.onTap});
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF13212D) : const Color(0xFFF2F6EE),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? const Color(0xFF233241) : const Color(0xFFE2EADF),
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: 19,
+            color: isDark ? Colors.white : const Color(0xFF1B241D),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupSelectorSheet extends StatelessWidget {
+  const _GroupSelectorSheet({
+    required this.groups,
+    required this.currentGroupId,
+  });
+
+  final List<GroupEntity> groups;
+  final String currentGroupId;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0C151D) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44,
+            height: 5,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF31424F) : const Color(0xFFD3DAD1),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Select Group Run',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : const Color(0xFF111111),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: groups.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final group = groups[index];
+                final selected = group.id == currentGroupId;
+                return InkWell(
+                  onTap: () => Navigator.of(context).pop(group),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? (isDark
+                                ? const Color(0xFF132331)
+                                : const Color(0xFFF1FAEE))
+                          : (isDark
+                                ? const Color(0xFF101B25)
+                                : const Color(0xFFF8FBF6)),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selected
+                            ? const Color(0xFF31C861)
+                            : (isDark
+                                  ? const Color(0xFF233241)
+                                  : const Color(0xFFE2EADF)),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                group.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF111111),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${group.memberCount} members',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? const Color(0xFF93A7B6)
+                                      : const Color(0xFF6E7771),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          selected
+                              ? Icons.check_circle_rounded
+                              : Icons.chevron_right_rounded,
+                          color: selected
+                              ? const Color(0xFF31C861)
+                              : (isDark
+                                    ? const Color(0xFF93A7B6)
+                                    : const Color(0xFF6E7771)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),

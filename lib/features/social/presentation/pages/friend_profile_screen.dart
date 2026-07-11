@@ -1,5 +1,5 @@
 import 'package:clain_the_run/features/message/presentation/pages/chatscreen.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/social/data/services/friend_post_api_service.dart';
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
 import 'package:clain_the_run/features/profile/presentation/widgets/profilestattile.dart';

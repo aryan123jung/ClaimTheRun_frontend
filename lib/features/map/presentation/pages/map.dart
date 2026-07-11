@@ -915,9 +915,10 @@ import 'dart:math';
 
 import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/run_route_map_preview.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
-import 'package:clain_the_run/features/leaderboard/map/presentation/pages/territories_overview_screen.dart';
+import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/map/data/models/run_record.dart';
+import 'package:clain_the_run/features/map/presentation/pages/group_run_dashboard_screen.dart';
+import 'package:clain_the_run/features/map/presentation/pages/territories_overview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -1759,10 +1760,28 @@ class _MapScreenState extends State<MapScreen> {
               distanceKm: _distanceMeters / 1000,
               elapsed: _elapsed,
               territoryCount: _territoryBoundary.length >= 3 ? 1 : 0,
-              onStartPressed: _startRun,
+              onStartPressed: () {
+                if (_selectedMode == MapRunMode.group) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const GroupRunDashboardScreen(),
+                    ),
+                  );
+                  return;
+                }
+                _startRun();
+              },
               onStopPressed: _stopRun,
               onResetPressed: _resetRunPreview,
               onTerritoriesPressed: () async {
+                if (_selectedMode == MapRunMode.group) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const GroupRunDashboardScreen(),
+                    ),
+                  );
+                  return;
+                }
                 final deleted = await Navigator.of(context).push<bool>(
                   MaterialPageRoute(
                     builder: (_) => TerritoriesOverviewScreen(

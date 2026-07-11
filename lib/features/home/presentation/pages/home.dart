@@ -4,10 +4,10 @@ import 'package:clain_the_run/features/notification/presentation/pages/notificat
 import 'package:clain_the_run/features/notification/presentation/view_model/notification_view_model.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
 import 'package:clain_the_run/features/home/presentation/widgets/rundetails.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
-import 'package:clain_the_run/features/leaderboard/map/presentation/pages/group_run_dashboard_screen.dart';
-import 'package:clain_the_run/features/leaderboard/map/presentation/pages/map.dart';
+import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/map/data/models/run_record.dart';
+import 'package:clain_the_run/features/map/presentation/pages/group_run_dashboard_screen.dart';
+import 'package:clain_the_run/features/map/presentation/pages/map.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';

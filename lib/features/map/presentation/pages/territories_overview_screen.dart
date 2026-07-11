@@ -1,8 +1,8 @@
 import 'dart:math';
 
 import 'package:clain_the_run/core/api/api_endpoints.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
+import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/map/data/models/run_record.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

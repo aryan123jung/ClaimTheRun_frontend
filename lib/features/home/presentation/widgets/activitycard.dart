@@ -1,5 +1,5 @@
 import 'package:clain_the_run/features/home/presentation/widgets/run_route_map_preview.dart';
-import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
+import 'package:clain_the_run/features/map/data/models/run_record.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 

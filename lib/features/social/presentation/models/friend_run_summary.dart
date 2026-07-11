@@ -1,4 +1,4 @@
-import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
+import 'package:clain_the_run/features/map/data/models/run_record.dart';
 
 class FriendRunSummary {
   const FriendRunSummary({
