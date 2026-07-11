@@ -960,7 +960,15 @@ class _MapScreenState extends State<MapScreen> {
   MapLibreMapController? _mapController;
   LatLng? _currentUserLocation;
   Circle? _userLocationCircle;
+  Line? _routeLine;
+  Fill? _territoryFill;
   StreamSubscription<Position>? _positionSubscription;
+  Timer? _elapsedTimer;
+  DateTime? _runStartedAt;
+  Duration _elapsed = Duration.zero;
+  double _distanceMeters = 0;
+  final List<LatLng> _runRoutePoints = <LatLng>[];
+  List<LatLng> _territoryBoundary = <LatLng>[];
 
   @override
   void initState() {
@@ -1021,6 +1029,9 @@ class _MapScreenState extends State<MapScreen> {
         _currentUserLocation = userLocation;
       });
       await _syncUserLocationMarker();
+      if (_isRunning && _selectedMode == MapRunMode.solo) {
+        await _recordRunPoint(userLocation);
+      }
       await _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(userLocation, 15.5),
       );
@@ -1054,6 +1065,9 @@ class _MapScreenState extends State<MapScreen> {
               _currentUserLocation = userLocation;
             });
             await _syncUserLocationMarker();
+            if (_isRunning && _selectedMode == MapRunMode.solo) {
+              await _recordRunPoint(userLocation);
+            }
 
             await _mapController?.animateCamera(
               CameraUpdate.newLatLngZoom(userLocation, 17),
@@ -1100,6 +1114,150 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  Future<void> _recordRunPoint(LatLng point) async {
+    if (_runRoutePoints.isNotEmpty) {
+      final previous = _runRoutePoints.last;
+      final segmentMeters = Geolocator.distanceBetween(
+        previous.latitude,
+        previous.longitude,
+        point.latitude,
+        point.longitude,
+      );
+      if (segmentMeters < 3) {
+        return;
+      }
+      _distanceMeters += segmentMeters;
+    }
+
+    _runRoutePoints.add(point);
+    _territoryBoundary = _buildTerritoryBoundary(_runRoutePoints);
+
+    if (mounted) {
+      setState(() {});
+    }
+    await _syncRouteLine();
+    await _syncTerritoryFill();
+  }
+
+  Future<void> _syncRouteLine() async {
+    final controller = _mapController;
+    if (!_isMapStyleReady || controller == null || _runRoutePoints.length < 2) {
+      return;
+    }
+
+    final options = LineOptions(
+      geometry: List<LatLng>.from(_runRoutePoints),
+      lineColor: '#72B63E',
+      lineWidth: 5,
+      lineOpacity: 0.92,
+      lineJoin: 'round',
+      lineBlur: 0.4,
+    );
+
+    if (_routeLine == null) {
+      _routeLine = await controller.addLine(options);
+      return;
+    }
+
+    await controller.updateLine(_routeLine!, options);
+  }
+
+  Future<void> _syncTerritoryFill() async {
+    final controller = _mapController;
+    if (!_isMapStyleReady || controller == null) return;
+
+    if (_territoryBoundary.length < 3) {
+      return;
+    }
+
+    final closedLoop = List<LatLng>.from(_territoryBoundary);
+    if (closedLoop.first != closedLoop.last) {
+      closedLoop.add(closedLoop.first);
+    }
+
+    final options = FillOptions(
+      geometry: [closedLoop],
+      fillColor: '#72B63E',
+      fillOpacity: 0.18,
+      fillOutlineColor: '#3B6D11',
+    );
+
+    if (_territoryFill == null) {
+      _territoryFill = await controller.addFill(options);
+      return;
+    }
+
+    await controller.updateFill(_territoryFill!, options);
+  }
+
+  List<LatLng> _buildTerritoryBoundary(List<LatLng> points) {
+    if (points.length < 3) {
+      return List<LatLng>.from(points);
+    }
+
+    final uniquePoints = <_PointKey, LatLng>{};
+    for (final point in points) {
+      uniquePoints[_PointKey(point.latitude, point.longitude)] = point;
+    }
+
+    final sorted = uniquePoints.values.toList()
+      ..sort((a, b) {
+        final longitudeCompare = a.longitude.compareTo(b.longitude);
+        if (longitudeCompare != 0) return longitudeCompare;
+        return a.latitude.compareTo(b.latitude);
+      });
+
+    if (sorted.length < 3) {
+      return sorted;
+    }
+
+    List<LatLng> buildHalf(Iterable<LatLng> source) {
+      final hull = <LatLng>[];
+      for (final point in source) {
+        while (hull.length >= 2 &&
+            _cross(hull[hull.length - 2], hull[hull.length - 1], point) <= 0) {
+          hull.removeLast();
+        }
+        hull.add(point);
+      }
+      return hull;
+    }
+
+    final lower = buildHalf(sorted);
+    final upper = buildHalf(sorted.reversed);
+    lower.removeLast();
+    upper.removeLast();
+    return [...lower, ...upper];
+  }
+
+  double _cross(LatLng o, LatLng a, LatLng b) {
+    return (a.longitude - o.longitude) * (b.latitude - o.latitude) -
+        (a.latitude - o.latitude) * (b.longitude - o.longitude);
+  }
+
+  void _resetRunState() {
+    _runStartedAt = null;
+    _elapsed = Duration.zero;
+    _distanceMeters = 0;
+    _runRoutePoints.clear();
+    _territoryBoundary = <LatLng>[];
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+  }
+
+  void _startElapsedTimer() {
+    _elapsedTimer?.cancel();
+    _runStartedAt = DateTime.now();
+    _elapsed = Duration.zero;
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final startedAt = _runStartedAt;
+      if (!mounted || startedAt == null) return;
+      setState(() {
+        _elapsed = DateTime.now().difference(startedAt);
+      });
+    });
+  }
+
   Future<void> _centerOnUser() async {
     if (!_hasLocationPermission) {
       await _ensureLocationPermission();
@@ -1125,21 +1283,37 @@ class _MapScreenState extends State<MapScreen> {
       if (!loaded) return;
     }
 
+    _resetRunState();
     if (!mounted) return;
     setState(() => _isRunning = true);
+    if (_currentUserLocation != null && _selectedMode == MapRunMode.solo) {
+      await _recordRunPoint(_currentUserLocation!);
+    }
+    _startElapsedTimer();
     await _startLocationTracking();
     await _centerOnUser();
   }
 
   Future<void> _stopRun() async {
     await _stopLocationTracking();
+    _elapsedTimer?.cancel();
     if (!mounted) return;
     setState(() => _isRunning = false);
+    if (_selectedMode == MapRunMode.solo && _territoryBoundary.length >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Run saved: ${(_distanceMeters / 1000).toStringAsFixed(2)} km and territory marked.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
     _positionSubscription?.cancel();
+    _elapsedTimer?.cancel();
     super.dispose();
   }
 
@@ -1285,6 +1459,9 @@ class _MapScreenState extends State<MapScreen> {
             child: _TrackingCard(
               selectedMode: _selectedMode,
               isRunning: _isRunning,
+              distanceKm: _distanceMeters / 1000,
+              elapsed: _elapsed,
+              territoryCount: _territoryBoundary.length >= 3 ? 1 : 0,
               onStartPressed: _startRun,
               onStopPressed: _stopRun,
               onTerritoriesPressed: () {
@@ -1463,6 +1640,9 @@ class _TrackingCard extends StatelessWidget {
   const _TrackingCard({
     required this.selectedMode,
     required this.isRunning,
+    required this.distanceKm,
+    required this.elapsed,
+    required this.territoryCount,
     required this.onStartPressed,
     required this.onStopPressed,
     required this.onTerritoriesPressed,
@@ -1470,6 +1650,9 @@ class _TrackingCard extends StatelessWidget {
 
   final MapRunMode selectedMode;
   final bool isRunning;
+  final double distanceKm;
+  final Duration elapsed;
+  final int territoryCount;
   final VoidCallback onStartPressed;
   final VoidCallback onStopPressed;
   final VoidCallback onTerritoriesPressed;
@@ -1515,13 +1698,39 @@ class _TrackingCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
               children: [
-                TextSpan(text: '0.00', style: TextStyle(fontSize: 30)),
+                TextSpan(
+                  text: distanceKm.toStringAsFixed(2),
+                  style: TextStyle(fontSize: 30),
+                ),
                 TextSpan(
                   text: ' km',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatDuration(elapsed),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF111111),
+                ),
+              ),
+              Text(
+                'Time',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? const Color(0xFF9BA8B4)
+                      : const Color(0xFF9A9A9A),
+                ),
+              ),
+            ],
           ),
           const Spacer(),
           SizedBox(
@@ -1617,7 +1826,7 @@ class _TrackingCard extends StatelessWidget {
                         Text(
                           selectedMode == MapRunMode.group
                               ? 'Leadership'
-                              : 'Territories',
+                              : 'Territories${territoryCount > 0 ? ' ($territoryCount)' : ''}',
                           style: TextStyle(
                             fontSize: 14,
                             color: isDark
@@ -1690,4 +1899,28 @@ class _TrackingCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatDuration(Duration duration) {
+  final hours = duration.inHours.toString().padLeft(2, '0');
+  final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+  final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+  return '$hours:$minutes:$seconds';
+}
+
+class _PointKey {
+  const _PointKey(this.latitude, this.longitude);
+
+  final double latitude;
+  final double longitude;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _PointKey &&
+        other.latitude == latitude &&
+        other.longitude == longitude;
+  }
+
+  @override
+  int get hashCode => Object.hash(latitude, longitude);
 }
