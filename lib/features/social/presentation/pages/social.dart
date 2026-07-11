@@ -69,7 +69,9 @@ class _SocialScreenState extends ConsumerState<SocialScreen>
     );
     final friendState = ref.watch(addFriendViewModelProvider);
     final posts = socialState.posts
-        .where((post) => post.author.id != currentUserId)
+        .where(
+          (post) => post.author.id != currentUserId && post.isLiked == false,
+        )
         .map(_mapPostEntityToViewModel)
         .toList();
     final theme = Theme.of(context);
