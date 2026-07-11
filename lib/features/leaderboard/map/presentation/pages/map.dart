@@ -929,6 +929,12 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   static const _mapCenter = LatLng(27.7172, 85.3240);
+  static const _idleZoom = 15.2;
+  static const _idleTilt = 28.0;
+  static const _idleBearing = -18.0;
+  static const _runningZoom = 17.2;
+  static const _runningTilt = 52.0;
+  static const _runningBearing = -32.0;
 
   static const _mapStyle = '''
 {
@@ -960,6 +966,7 @@ class _MapScreenState extends State<MapScreen> {
   MapLibreMapController? _mapController;
   LatLng? _currentUserLocation;
   Circle? _userLocationCircle;
+  Circle? _userLocationGlowCircle;
   Line? _routeLine;
   Fill? _territoryFill;
   StreamSubscription<Position>? _positionSubscription;
@@ -1032,9 +1039,7 @@ class _MapScreenState extends State<MapScreen> {
       if (_isRunning && _selectedMode == MapRunMode.solo) {
         await _recordRunPoint(userLocation);
       }
-      await _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(userLocation, 15.5),
-      );
+      await _animateToUserLocation(userLocation, isRunning: _isRunning);
       return true;
     } catch (_) {
       if (!mounted) return false;
@@ -1069,9 +1074,7 @@ class _MapScreenState extends State<MapScreen> {
               await _recordRunPoint(userLocation);
             }
 
-            await _mapController?.animateCamera(
-              CameraUpdate.newLatLngZoom(userLocation, 17),
-            );
+            await _animateToUserLocation(userLocation, isRunning: _isRunning);
           },
           onError: (_) {
             if (!mounted) return;
@@ -1095,19 +1098,34 @@ class _MapScreenState extends State<MapScreen> {
     if (!_isMapStyleReady || controller == null || userLocation == null) return;
 
     if (_userLocationCircle == null) {
+      _userLocationGlowCircle = await controller.addCircle(
+        CircleOptions(
+          geometry: userLocation,
+          circleRadius: 19,
+          circleColor: '#72B63E',
+          circleOpacity: 0.18,
+          circleBlur: 0.6,
+        ),
+      );
       _userLocationCircle = await controller.addCircle(
         CircleOptions(
           geometry: userLocation,
-          circleRadius: 9,
-          circleColor: '#22C55E',
+          circleRadius: 11,
+          circleColor: '#2FD16C',
           circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: 3,
-          circleOpacity: 0.95,
+          circleStrokeWidth: 4,
+          circleOpacity: 0.98,
         ),
       );
       return;
     }
 
+    if (_userLocationGlowCircle != null) {
+      await controller.updateCircle(
+        _userLocationGlowCircle!,
+        CircleOptions(geometry: userLocation),
+      );
+    }
     await controller.updateCircle(
       _userLocationCircle!,
       CircleOptions(geometry: userLocation),
@@ -1245,6 +1263,21 @@ class _MapScreenState extends State<MapScreen> {
     _elapsedTimer = null;
   }
 
+  Future<void> _clearRunOverlays() async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    if (_routeLine != null) {
+      await controller.removeLine(_routeLine!);
+      _routeLine = null;
+    }
+
+    if (_territoryFill != null) {
+      await controller.removeFill(_territoryFill!);
+      _territoryFill = null;
+    }
+  }
+
   void _startElapsedTimer() {
     _elapsedTimer?.cancel();
     _runStartedAt = DateTime.now();
@@ -1267,8 +1300,31 @@ class _MapScreenState extends State<MapScreen> {
     final loaded = await _loadCurrentLocation();
     if (!loaded || _currentUserLocation == null) return;
 
-    await _mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(_currentUserLocation!, 16.2),
+    await _animateToUserLocation(
+      _currentUserLocation!,
+      isRunning: _isRunning,
+      forceDuration: const Duration(milliseconds: 650),
+    );
+  }
+
+  Future<void> _animateToUserLocation(
+    LatLng userLocation, {
+    required bool isRunning,
+    Duration? forceDuration,
+  }) async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    final camera = CameraPosition(
+      target: userLocation,
+      zoom: isRunning ? _runningZoom : _idleZoom,
+      tilt: isRunning ? _runningTilt : _idleTilt,
+      bearing: isRunning ? _runningBearing : _idleBearing,
+    );
+
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(camera),
+      duration: forceDuration ?? const Duration(milliseconds: 900),
     );
   }
 
@@ -1310,6 +1366,28 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _resetRunPreview() async {
+    if (_isRunning) {
+      await _stopLocationTracking();
+    }
+
+    await _clearRunOverlays();
+    _resetRunState();
+    if (!mounted) return;
+
+    setState(() {
+      _isRunning = false;
+    });
+
+    if (_currentUserLocation != null) {
+      await _animateToUserLocation(
+        _currentUserLocation!,
+        isRunning: false,
+        forceDuration: const Duration(milliseconds: 650),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _positionSubscription?.cancel();
@@ -1331,7 +1409,9 @@ class _MapScreenState extends State<MapScreen> {
             styleString: _mapStyle,
             initialCameraPosition: const CameraPosition(
               target: _mapCenter,
-              zoom: 15,
+              zoom: _idleZoom,
+              tilt: _idleTilt,
+              bearing: _idleBearing,
             ),
             onMapCreated: (controller) => _mapController = controller,
             onStyleLoadedCallback: () async {
@@ -1346,8 +1426,8 @@ class _MapScreenState extends State<MapScreen> {
             scrollGesturesEnabled: !_isRunning,
             zoomGesturesEnabled: !_isRunning,
             dragEnabled: !_isRunning,
-            rotateGesturesEnabled: false,
-            tiltGesturesEnabled: false,
+            rotateGesturesEnabled: !_isRunning,
+            tiltGesturesEnabled: !_isRunning,
             attributionButtonMargins: const Point(-1000, -1000),
           ),
 
@@ -1464,6 +1544,7 @@ class _MapScreenState extends State<MapScreen> {
               territoryCount: _territoryBoundary.length >= 3 ? 1 : 0,
               onStartPressed: _startRun,
               onStopPressed: _stopRun,
+              onResetPressed: _resetRunPreview,
               onTerritoriesPressed: () {
                 if (_selectedMode != MapRunMode.group) return;
 
@@ -1609,26 +1690,53 @@ class _RecenterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark
+        ? const Color(0xFF8BCF5A)
+        : const Color(0xFF3B6D11);
 
     return Container(
-      width: 38,
-      height: 38,
+      width: 54,
+      height: 54,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xE6111C26) : const Color(0xD9FFFFFF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? const Color(0xFF233241) : const Color(0xFFE7E7E4),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xF0192633), Color(0xE10E1822)]
+              : const [Color(0xF9FFFFFF), Color(0xE8F4F5F1)],
         ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? const Color(0xFF294055) : const Color(0xFFE6ECE5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.09),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: const Icon(
-            Icons.my_location_rounded,
-            size: 17,
-            color: Color(0xFF3B6D11),
+          borderRadius: BorderRadius.circular(18),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.explore_rounded, size: 22, color: accentColor),
+              const SizedBox(height: 1),
+              Text(
+                'Center',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: accentColor,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1645,6 +1753,7 @@ class _TrackingCard extends StatelessWidget {
     required this.territoryCount,
     required this.onStartPressed,
     required this.onStopPressed,
+    required this.onResetPressed,
     required this.onTerritoriesPressed,
   });
 
@@ -1655,6 +1764,7 @@ class _TrackingCard extends StatelessWidget {
   final int territoryCount;
   final VoidCallback onStartPressed;
   final VoidCallback onStopPressed;
+  final VoidCallback onResetPressed;
   final VoidCallback onTerritoriesPressed;
 
   static const _brandGreen = Color(0xFF72B63E);
@@ -1674,80 +1784,111 @@ class _TrackingCard extends StatelessWidget {
   Widget _buildRunningCard({required Key key, required bool isDark}) {
     return Container(
       key: key,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111C26) : Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF11202B), Color(0xFF0A141C)]
+              : const [Color(0xFFFFFFFF), Color(0xFFF5F7F2)],
+        ),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isDark ? const Color(0xFF233241) : const Color(0xFFE4E4E1),
+          color: isDark ? const Color(0xFF223748) : const Color(0xFFE4ECE0),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          RichText(
-            text: TextSpan(
-              style: TextStyle(
-                color: isDark ? Colors.white : Color(0xFF111111),
-                fontWeight: FontWeight.w700,
-              ),
-              children: [
-                TextSpan(
-                  text: distanceKm.toStringAsFixed(2),
-                  style: TextStyle(fontSize: 30),
-                ),
-                TextSpan(
-                  text: ' km',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                _formatDuration(elapsed),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF111111),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF72B63E).withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.route_rounded,
+                  color: Color(0xFF5FA92D),
+                  size: 22,
                 ),
               ),
-              Text(
-                'Time',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark
-                      ? const Color(0xFF9BA8B4)
-                      : const Color(0xFF9A9A9A),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Solo Run Active',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF101414),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Territory capture is running live',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? const Color(0xFF8FA4B3)
+                            : const Color(0xFF7E8580),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _LiveBadge(isDark: isDark),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _RunMetricTile(
+                  label: 'Distance',
+                  value: distanceKm.toStringAsFixed(2),
+                  suffix: 'km',
+                  isDark: isDark,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _RunMetricTile(
+                  label: 'Time',
+                  value: _formatDuration(elapsed),
+                  isDark: isDark,
                 ),
               ),
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 18),
           SizedBox(
-            height: 46,
+            width: double.infinity,
+            height: 52,
             child: ElevatedButton.icon(
               onPressed: onStopPressed,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A1A),
+                backgroundColor: const Color(0xFF151C1B),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(23),
+                  borderRadius: BorderRadius.circular(26),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
               ),
-              icon: const Icon(Icons.stop_rounded, size: 18),
-              label: const Text('Stop'),
+              icon: const Icon(Icons.stop_circle_outlined, size: 20),
+              label: const Text('Finish run'),
             ),
           ),
         ],
@@ -1756,20 +1897,28 @@ class _TrackingCard extends StatelessWidget {
   }
 
   Widget _buildIdleCard({required Key key, required bool isDark}) {
+    final distanceLabel = distanceKm.toStringAsFixed(2);
+
     return Container(
       key: key,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111C26) : Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF111C26), Color(0xFF0A1218)]
+              : const [Color(0xFFFFFFFF), Color(0xFFF7F9F4)],
+        ),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(
-          color: isDark ? const Color(0xFF233241) : const Color(0xFFE4E4E1),
+          color: isDark ? const Color(0xFF243646) : const Color(0xFFE4ECE0),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -1796,18 +1945,21 @@ class _TrackingCard extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: onTerritoriesPressed,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 9,
+                      horizontal: 16,
+                      vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
+                      color: isDark
+                          ? const Color(0xFF172532)
+                          : const Color(0xFFF8FAF7),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isDark
-                            ? const Color(0xFF233241)
-                            : const Color(0xFFD7D7D7),
+                            ? const Color(0xFF294055)
+                            : const Color(0xFFE1E7DE),
                       ),
                     ),
                     child: Row(
@@ -1850,49 +2002,252 @@ class _TrackingCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          RichText(
-            text: TextSpan(
-              style: TextStyle(
-                color: isDark ? Colors.white : Color(0xFF111111),
-                fontWeight: FontWeight.w700,
-              ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF13212D) : const Color(0xFFF3F7EE),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
               children: [
-                TextSpan(text: '0.00', style: TextStyle(fontSize: 44)),
-                TextSpan(
-                  text: ' km',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF72B63E).withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.straighten_rounded,
+                        color: Color(0xFF67B337),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Distance ready',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF111111),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      territoryCount > 0 ? '$territoryCount zones' : 'No zones',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? const Color(0xFF8FA4B3)
+                            : const Color(0xFF6D776F),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF111111),
+                      fontWeight: FontWeight.w800,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: distanceLabel,
+                        style: const TextStyle(fontSize: 46),
+                      ),
+                      TextSpan(
+                        text: ' km',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? const Color(0xFF8FA4B3)
+                              : const Color(0xFF69706C),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Distance',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark
+                        ? const Color(0xFF8FA4B3)
+                        : const Color(0xFF8E948E),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            'Distance',
-            style: TextStyle(
-              fontSize: 13,
-              color: isDark ? const Color(0xFF9BA8B4) : const Color(0xFF9A9A9A),
-            ),
-          ),
           const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: onStartPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _brandGreen,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(26),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: distanceKm > 0 || territoryCount > 0
+                      ? onResetPressed
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark
+                        ? const Color(0xFFD7E6D0)
+                        : const Color(0xFF355B18),
+                    side: BorderSide(
+                      color: isDark
+                          ? const Color(0xFF304556)
+                          : const Color(0xFFD5E2CD),
+                    ),
+                    backgroundColor: isDark
+                        ? const Color(0xFF13212D)
+                        : const Color(0xFFF9FCF6),
+                    disabledForegroundColor: isDark
+                        ? const Color(0xFF61717E)
+                        : const Color(0xFFA7B3A0),
+                    disabledBackgroundColor: isDark
+                        ? const Color(0xFF101821)
+                        : const Color(0xFFF1F4EE),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  icon: const Icon(Icons.restart_alt_rounded, size: 20),
+                  label: const Text(
+                    'Reset',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
-              icon: const Icon(Icons.play_arrow_rounded, size: 20),
-              label: const Text('Start run'),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 58,
+                  child: ElevatedButton.icon(
+                    onPressed: onStartPressed,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _brandGreen,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    icon: const Icon(Icons.navigation_rounded, size: 22),
+                    label: const Text('Start run'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveBadge extends StatelessWidget {
+  const _LiveBadge({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF72B63E).withValues(alpha: isDark ? 0.16 : 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.fiber_manual_record_rounded,
+            size: 10,
+            color: Color(0xFF67B337),
+          ),
+          SizedBox(width: 4),
+          Text(
+            'LIVE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF67B337),
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RunMetricTile extends StatelessWidget {
+  const _RunMetricTile({
+    required this.label,
+    required this.value,
+    required this.isDark,
+    this.suffix,
+  });
+
+  final String label;
+  final String value;
+  final bool isDark;
+  final String? suffix;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF162531) : const Color(0xFFF3F7EE),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
+              style: TextStyle(
+                color: isDark ? Colors.white : const Color(0xFF111111),
+                fontWeight: FontWeight.w800,
+              ),
+              children: [
+                TextSpan(text: value, style: const TextStyle(fontSize: 22)),
+                if (suffix != null)
+                  TextSpan(
+                    text: ' $suffix',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? const Color(0xFF8FA4B3)
+                          : const Color(0xFF69706C),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? const Color(0xFF8FA4B3) : const Color(0xFF7D847E),
             ),
           ),
         ],
