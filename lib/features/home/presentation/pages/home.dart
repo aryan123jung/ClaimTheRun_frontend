@@ -80,7 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 const _HomeHeader(),
                 const SizedBox(height: 14),
-                const _StreakCard(),
+                _StreakCard(runs: _recentRuns),
                 const SizedBox(height: 12),
 
                 _RunMapCard(
@@ -255,22 +255,25 @@ class _HomeHeader extends ConsumerWidget {
 }
 
 class _StreakCard extends StatelessWidget {
-  const _StreakCard();
+  const _StreakCard({required this.runs});
+
+  final List<RunRecord> runs;
 
   @override
   Widget build(BuildContext context) {
+    final weekProgress = _buildWeeklyRunProgress(runs);
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1D1B26),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: _StreakDetails()),
+          Expanded(child: _StreakDetails(progress: weekProgress)),
           SizedBox(width: 10),
-          _DistanceRing(),
+          _DistanceRing(distanceKm: weekProgress.totalDistanceKm),
         ],
       ),
     );
@@ -278,21 +281,25 @@ class _StreakCard extends StatelessWidget {
 }
 
 class _StreakDetails extends StatelessWidget {
-  const _StreakDetails();
+  const _StreakDetails({required this.progress});
+
+  final _WeeklyRunProgress progress;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Text('🔥', style: TextStyle(fontSize: 30)),
-            SizedBox(width: 8),
+            const Text('🔥', style: TextStyle(fontSize: 30)),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Keep it up,Aryan!',
-                style: TextStyle(
+                progress.completedDays == 0
+                    ? 'Start your weekly run streak!'
+                    : 'You ran ${progress.completedDays} day${progress.completedDays == 1 ? '' : 's'} this week',
+                style: const TextStyle(
                   color: Color(0xFFCBC9CE),
                   fontSize: 19,
                   fontWeight: FontWeight.w500,
@@ -304,16 +311,11 @@ class _StreakDetails extends StatelessWidget {
 
         const SizedBox(height: 14),
 
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _WeekdayProgress(day: 'S', done: true),
-            _WeekdayProgress(day: 'M', done: true),
-            _WeekdayProgress(day: 'T', done: true),
-            _WeekdayProgress(day: 'W', done: true),
-            _WeekdayProgress(day: 'T', done: true),
-            _WeekdayProgress(day: 'F', done: true),
-            _WeekdayProgress(day: 'S', done: false),
+            for (final day in progress.days)
+              _WeekdayProgress(day: day.label, done: day.done),
           ],
         ),
       ],
@@ -363,39 +365,44 @@ class _WeekdayProgress extends StatelessWidget {
 }
 
 class _DistanceRing extends StatelessWidget {
-  const _DistanceRing();
+  const _DistanceRing({required this.distanceKm});
+
+  final double distanceKm;
 
   @override
   Widget build(BuildContext context) {
+    final progress = (distanceKm / 30).clamp(0.0, 1.0);
     return SizedBox(
       width: 96,
       height: 96,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          const SizedBox(
+          SizedBox(
             width: 86,
             height: 86,
             child: CircularProgressIndicator(
-              value: 0.82,
+              value: progress,
               strokeWidth: 6,
-              backgroundColor: Color(0xFF33303B),
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF56B846)),
+              backgroundColor: const Color(0xFF33303B),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF56B846),
+              ),
             ),
           ),
 
-          const Column(
+          Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '26.4',
-                style: TextStyle(
+                distanceKm.toStringAsFixed(1),
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              Text(
+              const Text(
                 'km',
                 style: TextStyle(
                   color: Colors.white,
@@ -409,6 +416,50 @@ class _DistanceRing extends StatelessWidget {
       ),
     );
   }
+}
+
+_WeeklyRunProgress _buildWeeklyRunProgress(List<RunRecord> runs) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final daysSinceSunday = now.weekday % 7;
+  final startOfWeek = today.subtract(Duration(days: daysSinceSunday));
+  const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  final ranDays = List<bool>.filled(7, false);
+  double totalDistanceKm = 0;
+
+  for (final run in runs) {
+    final createdAt = run.createdAt?.toLocal();
+    if (createdAt == null) continue;
+    final runDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
+    final diff = runDay.difference(startOfWeek).inDays;
+    if (diff < 0 || diff > 6) continue;
+    ranDays[diff] = true;
+    totalDistanceKm += run.distanceMeters / 1000;
+  }
+
+  return _WeeklyRunProgress(
+    days: [
+      for (int index = 0; index < 7; index++)
+        _DayStatus(label: labels[index], done: ranDays[index]),
+    ],
+    totalDistanceKm: totalDistanceKm,
+  );
+}
+
+class _WeeklyRunProgress {
+  const _WeeklyRunProgress({required this.days, required this.totalDistanceKm});
+
+  final List<_DayStatus> days;
+  final double totalDistanceKm;
+
+  int get completedDays => days.where((day) => day.done).length;
+}
+
+class _DayStatus {
+  const _DayStatus({required this.label, required this.done});
+
+  final String label;
+  final bool done;
 }
 
 class _RunMapCard extends StatelessWidget {
