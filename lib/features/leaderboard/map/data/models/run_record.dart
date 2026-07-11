@@ -26,6 +26,7 @@ class RunUserSummary {
 class RunRecord {
   const RunRecord({
     required this.id,
+    required this.title,
     required this.distanceMeters,
     required this.durationSeconds,
     required this.routePoints,
@@ -35,6 +36,7 @@ class RunRecord {
   });
 
   final String id;
+  final String? title;
   final double distanceMeters;
   final int durationSeconds;
   final List<LatLng> routePoints;
@@ -60,6 +62,7 @@ class RunRecord {
 
     return RunRecord(
       id: json['id']?.toString() ?? '',
+      title: json['title']?.toString(),
       distanceMeters: (json['distanceMeters'] as num?)?.toDouble() ?? 0,
       durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
       routePoints: parsePoints(json['routePoints']),

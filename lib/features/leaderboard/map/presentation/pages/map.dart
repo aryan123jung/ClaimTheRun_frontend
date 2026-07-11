@@ -914,6 +914,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
+import 'package:clain_the_run/features/home/presentation/widgets/run_route_map_preview.dart';
 import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
 import 'package:clain_the_run/features/leaderboard/map/presentation/pages/territories_overview_screen.dart';
@@ -1003,6 +1004,7 @@ class _MapScreenState extends State<MapScreen> {
         (run) => run.hasTerritory,
         orElse: () => const RunRecord(
           id: '',
+          title: null,
           distanceMeters: 0,
           durationSeconds: 0,
           routePoints: <LatLng>[],
@@ -1507,12 +1509,13 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     final activity = ActivityModel(
-      title: _selectedMode == MapRunMode.solo ? 'Solo Run' : 'Group Run',
+      title: _selectedMode == MapRunMode.solo ? 'My Run' : 'Group Run',
       subtitle: _formatRunSubtitle(DateTime.now()),
       distanceKm: _distanceMeters / 1000,
       totalTime: _formatElapsed(_elapsed),
       avgPace: _formatPace(_distanceMeters, _elapsed.inSeconds),
       calories: _estimateCalories(_distanceMeters),
+      routePoints: List<LatLng>.from(_runRoutePoints),
     );
 
     final decision = await _showRunSummaryDecisionSheet(
@@ -1522,8 +1525,8 @@ class _MapScreenState extends State<MapScreen> {
 
     if (!mounted) return;
 
-    if (decision == _RunSummaryDecision.save) {
-      await _saveCompletedRun();
+    if (decision?.shouldSave == true) {
+      await _saveCompletedRun(decision!.title);
       return;
     }
 
@@ -1538,9 +1541,10 @@ class _MapScreenState extends State<MapScreen> {
     ).showSnackBar(const SnackBar(content: Text('Run not saved.')));
   }
 
-  Future<void> _saveCompletedRun() async {
+  Future<void> _saveCompletedRun(String? title) async {
     try {
       final savedRun = await _runApiService.createRun(
+        title: title,
         routePoints: List<LatLng>.from(_runRoutePoints),
         territoryPoints: List<LatLng>.from(_territoryBoundary),
         distanceMeters: _distanceMeters,
@@ -2486,23 +2490,40 @@ String _formatDuration(Duration duration) {
   return '$hours:$minutes:$seconds';
 }
 
-enum _RunSummaryDecision { save, discard }
-
-Future<_RunSummaryDecision?> _showRunSummaryDecisionSheet(
+Future<_RunSavePayload?> _showRunSummaryDecisionSheet(
   BuildContext context, {
   required ActivityModel activity,
 }) {
-  return showDialog<_RunSummaryDecision>(
+  return showDialog<_RunSavePayload>(
     context: context,
     barrierDismissible: false,
-    builder: (context) => _RunSummaryDialog(activity: activity),
+    builder: (context) => _RunSummaryNameDialog(activity: activity),
   );
 }
 
-class _RunSummaryDialog extends StatelessWidget {
-  const _RunSummaryDialog({required this.activity});
+class _RunSummaryNameDialog extends StatefulWidget {
+  const _RunSummaryNameDialog({required this.activity});
 
   final ActivityModel activity;
+
+  @override
+  State<_RunSummaryNameDialog> createState() => _RunSummaryNameDialogState();
+}
+
+class _RunSummaryNameDialogState extends State<_RunSummaryNameDialog> {
+  late final TextEditingController _nameController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.activity.title);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2530,12 +2551,36 @@ class _RunSummaryDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
+            TextField(
+              controller: _nameController,
+              onChanged: (_) => setState(() {}),
+              textInputAction: TextInputAction.done,
+              maxLength: 80,
+              decoration: InputDecoration(
+                labelText: 'Run name',
+                hintText: 'Morning Run',
+                counterText: '',
+                filled: true,
+                fillColor: const Color(0xFFF5F6F2),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFFD8D8D5)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFFD8D8D5)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
-                    activity.title,
+                    _nameController.text.trim().isEmpty
+                        ? widget.activity.title
+                        : _nameController.text.trim(),
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -2544,7 +2589,7 @@ class _RunSummaryDialog extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  activity.subtitle,
+                  widget.activity.subtitle,
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF9A9A9A),
@@ -2561,9 +2606,8 @@ class _RunSummaryDialog extends StatelessWidget {
                   border: Border.all(color: const Color(0xFFD8D8D5)),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: CustomPaint(
-                  painter: _RunDetailsRoutePainter(),
-                  child: const SizedBox.expand(),
+                child: RunRouteMapPreview(
+                  routePoints: widget.activity.routePoints,
                 ),
               ),
             ),
@@ -2573,28 +2617,28 @@ class _RunSummaryDialog extends StatelessWidget {
                 _RunSummaryStat(
                   icon: Icons.show_chart_rounded,
                   iconColor: const Color(0xFF6AB339),
-                  value: activity.distanceKm.toStringAsFixed(2),
+                  value: widget.activity.distanceKm.toStringAsFixed(2),
                   label: 'Total Km',
                 ),
-                _runSummaryDivider(),
+                Container(width: 1, height: 40, color: const Color(0xFFD8D8D5)),
                 _RunSummaryStat(
                   icon: Icons.timer_outlined,
                   iconColor: const Color(0xFF3D6FE0),
-                  value: activity.totalTime,
+                  value: widget.activity.totalTime,
                   label: 'Total Time',
                 ),
-                _runSummaryDivider(),
+                Container(width: 1, height: 40, color: const Color(0xFFD8D8D5)),
                 _RunSummaryStat(
                   icon: Icons.speed_rounded,
                   iconColor: const Color(0xFFB6A72E),
-                  value: activity.avgPace,
+                  value: widget.activity.avgPace,
                   label: 'Avg Pace',
                 ),
-                _runSummaryDivider(),
+                Container(width: 1, height: 40, color: const Color(0xFFD8D8D5)),
                 _RunSummaryStat(
                   icon: Icons.local_fire_department_rounded,
                   iconColor: const Color(0xFFE08A2E),
-                  value: '${activity.calories}',
+                  value: '${widget.activity.calories}',
                   label: 'Calories',
                 ),
               ],
@@ -2604,8 +2648,9 @@ class _RunSummaryDialog extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        Navigator.of(context).pop(_RunSummaryDecision.discard),
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pop(const _RunSavePayload.discard()),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF4A4A4A),
                       side: const BorderSide(color: Color(0xFFD5D5D2)),
@@ -2620,8 +2665,15 @@ class _RunSummaryDialog extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () =>
-                        Navigator.of(context).pop(_RunSummaryDecision.save),
+                    onPressed: () {
+                      Navigator.of(context).pop(
+                        _RunSavePayload.save(
+                          _nameController.text.trim().isEmpty
+                              ? widget.activity.title
+                              : _nameController.text.trim(),
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF72B63E),
                       foregroundColor: Colors.white,
@@ -2641,10 +2693,18 @@ class _RunSummaryDialog extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _runSummaryDivider() {
-    return Container(width: 1, height: 40, color: const Color(0xFFD8D8D5));
-  }
+class _RunSavePayload {
+  const _RunSavePayload({required this.shouldSave, this.title});
+
+  const _RunSavePayload.save(String title)
+    : this(shouldSave: true, title: title);
+
+  const _RunSavePayload.discard() : this(shouldSave: false);
+
+  final bool shouldSave;
+  final String? title;
 }
 
 class _RunSummaryStat extends StatelessWidget {
@@ -2686,60 +2746,6 @@ class _RunSummaryStat extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RunDetailsRoutePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = const Color(0xFFEFEFEC);
-    canvas.drawRect(Offset.zero & size, bgPaint);
-
-    final gridPaint = Paint()
-      ..color = const Color(0xFFE0E0DC)
-      ..strokeWidth = 1;
-    for (double x = 0; x < size.width; x += 20) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += 20) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    final routePaint = Paint()
-      ..color = const Color(0xFF72B63E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()
-      ..moveTo(size.width * 0.10, size.height * 0.72)
-      ..quadraticBezierTo(
-        size.width * 0.26,
-        size.height * 0.20,
-        size.width * 0.52,
-        size.height * 0.42,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.76,
-        size.height * 0.68,
-        size.width * 0.90,
-        size.height * 0.24,
-      );
-    canvas.drawPath(path, routePaint);
-
-    canvas.drawCircle(
-      Offset(size.width * 0.10, size.height * 0.72),
-      8,
-      Paint()..color = const Color(0xFF72B63E),
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.90, size.height * 0.24),
-      8,
-      Paint()..color = const Color(0xFF111111),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _PointKey {

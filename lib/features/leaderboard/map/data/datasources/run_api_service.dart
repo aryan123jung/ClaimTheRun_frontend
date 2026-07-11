@@ -9,6 +9,7 @@ class RunApiService {
   final ApiClient _client;
 
   Future<RunRecord> createRun({
+    String? title,
     required List<LatLng> routePoints,
     required List<LatLng> territoryPoints,
     required double distanceMeters,
@@ -17,6 +18,7 @@ class RunApiService {
     final response = await _client.post(
       '/runs',
       data: {
+        if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
         'routePoints': routePoints
             .map(
               (point) => {

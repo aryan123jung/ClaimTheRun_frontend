@@ -1,6 +1,7 @@
 import 'package:clain_the_run/features/home/presentation/widgets/run_route_map_preview.dart';
 import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
 import 'package:flutter/material.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 
 class ActivityModel {
   const ActivityModel({
@@ -10,6 +11,7 @@ class ActivityModel {
     required this.totalTime,
     required this.avgPace,
     required this.calories,
+    this.routePoints = const <LatLng>[],
   });
 
   final String title;
@@ -18,16 +20,20 @@ class ActivityModel {
   final String totalTime;
   final String avgPace;
   final int calories;
+  final List<LatLng> routePoints;
 
   factory ActivityModel.fromRunRecord(RunRecord run) {
     final createdAt = run.createdAt?.toLocal();
     return ActivityModel(
-      title: run.hasTerritory ? 'Territory Run' : 'Run Activity',
+      title: run.title?.trim().isNotEmpty == true
+          ? run.title!.trim()
+          : (run.hasTerritory ? 'Territory Run' : 'Run Activity'),
       subtitle: _formatSubtitle(createdAt),
       distanceKm: run.distanceMeters / 1000,
       totalTime: _formatDuration(run.durationSeconds),
       avgPace: _formatPace(run.distanceMeters, run.durationSeconds),
       calories: _estimateCalories(run.distanceMeters),
+      routePoints: run.routePoints,
     );
   }
 
@@ -122,7 +128,10 @@ class ActivityCard extends StatelessWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: const RunRouteMapPreview(zoom: 13.8),
+                  child: RunRouteMapPreview(
+                    routePoints: activity.routePoints,
+                    zoom: 13.8,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),

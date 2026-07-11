@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
+import 'package:clain_the_run/features/home/presentation/widgets/run_route_map_preview.dart';
 import 'package:flutter/material.dart';
 
 /// Opens the run-details popup over a blurred backdrop. Uses a custom
@@ -108,9 +109,8 @@ class _RunDetailsCard extends StatelessWidget {
                       border: Border.all(color: const Color(0xFFD8D8D5)),
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: CustomPaint(
-                      painter: _RoutePainter(),
-                      child: const SizedBox.expand(),
+                    child: RunRouteMapPreview(
+                      routePoints: activity.routePoints,
                     ),
                   ),
                 ),
@@ -218,60 +218,4 @@ class _StatColumn extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RoutePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = const Color(0xFFEFEFEC);
-    canvas.drawRect(Offset.zero & size, bgPaint);
-
-    final gridPaint = Paint()
-      ..color = const Color(0xFFE0E0DC)
-      ..strokeWidth = 1;
-    for (double x = 0; x < size.width; x += 20) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += 20) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    final routePaint = Paint()
-      ..color = const Color(0xFF72B63E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()
-      ..moveTo(size.width * 0.15, size.height * 0.75)
-      ..quadraticBezierTo(
-        size.width * 0.35,
-        size.height * 0.2,
-        size.width * 0.55,
-        size.height * 0.45,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.75,
-        size.height * 0.7,
-        size.width * 0.85,
-        size.height * 0.25,
-      );
-    canvas.drawPath(path, routePaint);
-
-    final startPaint = Paint()..color = const Color(0xFF72B63E);
-    canvas.drawCircle(
-      Offset(size.width * 0.15, size.height * 0.75),
-      5,
-      startPaint,
-    );
-    final endPaint = Paint()..color = const Color(0xFF1A1A1A);
-    canvas.drawCircle(
-      Offset(size.width * 0.85, size.height * 0.25),
-      5,
-      endPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
