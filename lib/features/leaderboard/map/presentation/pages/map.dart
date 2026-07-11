@@ -910,13 +910,17 @@
 // }
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
-import 'package:clain_the_run/features/leaderboard/presentation/pages/leaderboard.dart';
+import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/leaderboard/map/data/models/run_record.dart';
+import 'package:clain_the_run/features/leaderboard/map/presentation/pages/territories_overview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum MapRunMode { solo, group }
 
@@ -928,6 +932,8 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  static const _savedTerritoryKey = 'saved_solo_territory_boundary';
+  final RunApiService _runApiService = RunApiService();
   static const _mapCenter = LatLng(27.7172, 85.3240);
   static const _idleZoom = 15.2;
   static const _idleTilt = 28.0;
@@ -974,6 +980,7 @@ class _MapScreenState extends State<MapScreen> {
   DateTime? _runStartedAt;
   Duration _elapsed = Duration.zero;
   double _distanceMeters = 0;
+  String? _latestSavedRunId;
   final List<LatLng> _runRoutePoints = <LatLng>[];
   List<LatLng> _territoryBoundary = <LatLng>[];
 
@@ -981,8 +988,99 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreSavedTerritoryFromApi();
       _ensureLocationPermission();
     });
+  }
+
+  Future<void> _restoreSavedTerritoryFromApi() async {
+    try {
+      final runs = await _runApiService.fetchMyRuns();
+      if (!mounted) return;
+
+      final latestTerritoryRun = runs.firstWhere(
+        (run) => run.hasTerritory,
+        orElse: () => const RunRecord(
+          id: '',
+          distanceMeters: 0,
+          durationSeconds: 0,
+          routePoints: <LatLng>[],
+          territoryPoints: <LatLng>[],
+          createdAt: null,
+          user: RunUserSummary(
+            id: '',
+            fullname: '',
+            username: '',
+            profileUrl: null,
+          ),
+        ),
+      );
+
+      if (latestTerritoryRun.id.isNotEmpty &&
+          latestTerritoryRun.territoryPoints.length >= 3) {
+        setState(() {
+          _territoryBoundary = List<LatLng>.from(
+            latestTerritoryRun.territoryPoints,
+          );
+          _latestSavedRunId = latestTerritoryRun.id;
+        });
+        await _persistSavedTerritory();
+        await _syncTerritoryFill();
+        return;
+      }
+    } catch (_) {
+      // Fall back to local cache when backend data is unavailable.
+    }
+
+    await _restoreSavedTerritory();
+  }
+
+  Future<void> _restoreSavedTerritory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_savedTerritoryKey);
+    if (raw == null || raw.isEmpty) return;
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+
+      final restored = decoded
+          .whereType<Map>()
+          .map(
+            (point) => LatLng(
+              (point['lat'] as num).toDouble(),
+              (point['lng'] as num).toDouble(),
+            ),
+          )
+          .toList();
+
+      if (restored.length < 3 || !mounted) return;
+
+      setState(() {
+        _territoryBoundary = restored;
+      });
+      await _syncTerritoryFill();
+    } catch (_) {
+      await prefs.remove(_savedTerritoryKey);
+    }
+  }
+
+  Future<void> _persistSavedTerritory() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_territoryBoundary.length < 3) {
+      await prefs.remove(_savedTerritoryKey);
+      return;
+    }
+
+    final payload = _territoryBoundary
+        .map(
+          (point) => <String, double>{
+            'lat': point.latitude,
+            'lng': point.longitude,
+          },
+        )
+        .toList();
+    await prefs.setString(_savedTerritoryKey, jsonEncode(payload));
   }
 
   Future<void> _ensureLocationPermission() async {
@@ -1353,6 +1451,24 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _stopRun() async {
     await _stopLocationTracking();
     _elapsedTimer?.cancel();
+    if (_runRoutePoints.length >= 2) {
+      try {
+        final savedRun = await _runApiService.createRun(
+          routePoints: List<LatLng>.from(_runRoutePoints),
+          territoryPoints: List<LatLng>.from(_territoryBoundary),
+          distanceMeters: _distanceMeters,
+          durationSeconds: _elapsed.inSeconds,
+        );
+        _latestSavedRunId = savedRun.id;
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_runApiService.extractErrorMessage(error))),
+          );
+        }
+      }
+    }
+    await _persistSavedTerritory();
     if (!mounted) return;
     setState(() => _isRunning = false);
     if (_selectedMode == MapRunMode.solo && _territoryBoundary.length >= 3) {
@@ -1373,6 +1489,8 @@ class _MapScreenState extends State<MapScreen> {
 
     await _clearRunOverlays();
     _resetRunState();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_savedTerritoryKey);
     if (!mounted) return;
 
     setState(() {
@@ -1386,6 +1504,17 @@ class _MapScreenState extends State<MapScreen> {
         forceDuration: const Duration(milliseconds: 650),
       );
     }
+  }
+
+  Future<void> _clearSavedTerritoryOnly() async {
+    await _clearRunOverlays();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_savedTerritoryKey);
+    if (!mounted) return;
+    setState(() {
+      _territoryBoundary = <LatLng>[];
+      _latestSavedRunId = null;
+    });
   }
 
   @override
@@ -1417,6 +1546,7 @@ class _MapScreenState extends State<MapScreen> {
             onStyleLoadedCallback: () async {
               _isMapStyleReady = true;
               await _syncUserLocationMarker();
+              await _syncTerritoryFill();
             },
             compassEnabled: false,
             // We track location with geolocator and move the camera ourselves.
@@ -1545,12 +1675,22 @@ class _MapScreenState extends State<MapScreen> {
               onStartPressed: _startRun,
               onStopPressed: _stopRun,
               onResetPressed: _resetRunPreview,
-              onTerritoriesPressed: () {
-                if (_selectedMode != MapRunMode.group) return;
-
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+              onTerritoriesPressed: () async {
+                final deleted = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => TerritoriesOverviewScreen(
+                      currentUserTerritory: List<LatLng>.from(
+                        _territoryBoundary,
+                      ),
+                      currentUserRunId: _latestSavedRunId,
+                      fallbackCenter: _currentUserLocation ?? _mapCenter,
+                    ),
+                  ),
                 );
+
+                if (deleted == true) {
+                  await _clearSavedTerritoryOnly();
+                }
               },
             ),
           ),
