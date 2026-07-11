@@ -2,6 +2,7 @@ import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/message/domain/entities/message_entities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -23,6 +24,22 @@ class GroupVoiceParticipantSocketPayload {
   final String? avatarUrl;
 }
 
+class GroupRunParticipantSocketPayload {
+  const GroupRunParticipantSocketPayload({
+    required this.userId,
+    required this.name,
+    required this.location,
+    this.avatarUrl,
+    this.updatedAt,
+  });
+
+  final String userId;
+  final String name;
+  final String? avatarUrl;
+  final LatLng location;
+  final DateTime? updatedAt;
+}
+
 class MessageSocketService {
   static const _tokenKey = 'auth_token';
 
@@ -30,6 +47,8 @@ class MessageSocketService {
   final Set<String> _pendingConversationJoins = <String>{};
   final Set<String> _pendingGroupJoins = <String>{};
   final Map<String, Map<String, dynamic>> _pendingGroupVoiceJoins =
+      <String, Map<String, dynamic>>{};
+  final Map<String, Map<String, dynamic>> _pendingGroupRunJoins =
       <String, Map<String, dynamic>>{};
   io.Socket? _socket;
   void Function(MessageEntity message)? _onMessage;
@@ -46,6 +65,13 @@ class MessageSocketService {
   _onGroupVoiceUserJoined;
   void Function(String communityId, String userId)? _onGroupVoiceUserLeft;
   void Function(Map<String, dynamic> payload)? _onGroupVoiceSignal;
+  void Function(String communityId, List<GroupRunParticipantSocketPayload>)?
+  _onGroupRunParticipants;
+  void Function(String communityId, GroupRunParticipantSocketPayload)?
+  _onGroupRunUserJoined;
+  void Function(String communityId, GroupRunParticipantSocketPayload)?
+  _onGroupRunUserUpdated;
+  void Function(String communityId, String userId)? _onGroupRunUserLeft;
   bool _isConnecting = false;
   int _socketUrlIndex = 0;
 
@@ -169,6 +195,41 @@ class MessageSocketService {
       _onGroupVoiceSignal?.call(Map<String, dynamic>.from(data));
     });
 
+    socket.on('group:run:participants', (data) {
+      if (data is! Map) return;
+      final communityId = data['communityId']?.toString() ?? '';
+      final rawItems = data['participants'] as List? ?? const [];
+      final participants = rawItems
+          .map((item) => _mapGroupRunParticipant(item))
+          .whereType<GroupRunParticipantSocketPayload>()
+          .toList();
+      _onGroupRunParticipants?.call(communityId, participants);
+    });
+
+    socket.on('group:run:user-joined', (data) {
+      if (data is! Map) return;
+      final communityId = data['communityId']?.toString() ?? '';
+      final participant = _mapGroupRunParticipant(data['participant']);
+      if (participant == null) return;
+      _onGroupRunUserJoined?.call(communityId, participant);
+    });
+
+    socket.on('group:run:user-updated', (data) {
+      if (data is! Map) return;
+      final communityId = data['communityId']?.toString() ?? '';
+      final participant = _mapGroupRunParticipant(data['participant']);
+      if (participant == null) return;
+      _onGroupRunUserUpdated?.call(communityId, participant);
+    });
+
+    socket.on('group:run:user-left', (data) {
+      if (data is! Map) return;
+      _onGroupRunUserLeft?.call(
+        data['communityId']?.toString() ?? '',
+        data['userId']?.toString() ?? '',
+      );
+    });
+
     socket.connect();
     _socket = socket;
   }
@@ -233,6 +294,33 @@ class MessageSocketService {
     _onGroupVoiceSignal = listener;
   }
 
+  void setOnGroupRunParticipants(
+    void Function(String communityId, List<GroupRunParticipantSocketPayload>)?
+    listener,
+  ) {
+    _onGroupRunParticipants = listener;
+  }
+
+  void setOnGroupRunUserJoined(
+    void Function(String communityId, GroupRunParticipantSocketPayload)?
+    listener,
+  ) {
+    _onGroupRunUserJoined = listener;
+  }
+
+  void setOnGroupRunUserUpdated(
+    void Function(String communityId, GroupRunParticipantSocketPayload)?
+    listener,
+  ) {
+    _onGroupRunUserUpdated = listener;
+  }
+
+  void setOnGroupRunUserLeft(
+    void Function(String communityId, String userId)? listener,
+  ) {
+    _onGroupRunUserLeft = listener;
+  }
+
   void joinGroup(String communityId) {
     final trimmed = communityId.trim();
     if (trimmed.isEmpty) return;
@@ -288,6 +376,53 @@ class MessageSocketService {
     _socket?.emit('group:voice:signal', payload);
   }
 
+  void joinGroupRun({
+    required String communityId,
+    required String userId,
+    required String name,
+    String? avatarUrl,
+    required LatLng location,
+  }) {
+    final trimmed = communityId.trim();
+    if (trimmed.isEmpty || userId.trim().isEmpty) return;
+
+    final payload = <String, dynamic>{
+      'communityId': trimmed,
+      'userId': userId.trim(),
+      'name': name.trim(),
+      'avatarUrl': avatarUrl,
+      'latitude': location.latitude,
+      'longitude': location.longitude,
+    };
+    _pendingGroupRunJoins[trimmed] = payload;
+    final socket = _socket;
+    if (socket?.connected == true) {
+      socket!.emit('group:run:join', payload);
+      return;
+    }
+
+    connect();
+  }
+
+  void updateGroupRunLocation({
+    required String communityId,
+    required String userId,
+    required LatLng location,
+  }) {
+    _socket?.emit('group:run:update', {
+      'communityId': communityId.trim(),
+      'userId': userId.trim(),
+      'latitude': location.latitude,
+      'longitude': location.longitude,
+    });
+  }
+
+  void leaveGroupRun(String communityId) {
+    final trimmed = communityId.trim();
+    _pendingGroupRunJoins.remove(trimmed);
+    _socket?.emit('group:run:leave', trimmed);
+  }
+
   Future<String?> _readToken() async {
     var token = await _storage.read(key: _tokenKey);
     token ??= (await SharedPreferences.getInstance()).getString(_tokenKey);
@@ -302,6 +437,7 @@ class MessageSocketService {
     _pendingConversationJoins.clear();
     _pendingGroupJoins.clear();
     _pendingGroupVoiceJoins.clear();
+    _pendingGroupRunJoins.clear();
   }
 
   void _flushPendingConversationJoins() {
@@ -316,6 +452,9 @@ class MessageSocketService {
     }
     for (final payload in _pendingGroupVoiceJoins.values) {
       socket!.emit('group:voice:join', payload);
+    }
+    for (final payload in _pendingGroupRunJoins.values) {
+      socket!.emit('group:run:join', payload);
     }
   }
 
@@ -336,6 +475,20 @@ class MessageSocketService {
       userId: raw['userId']?.toString() ?? '',
       name: raw['name']?.toString() ?? 'Runner',
       avatarUrl: raw['avatarUrl']?.toString(),
+    );
+  }
+
+  GroupRunParticipantSocketPayload? _mapGroupRunParticipant(dynamic raw) {
+    if (raw is! Map) return null;
+    final latitude = (raw['latitude'] as num?)?.toDouble();
+    final longitude = (raw['longitude'] as num?)?.toDouble();
+    if (latitude == null || longitude == null) return null;
+    return GroupRunParticipantSocketPayload(
+      userId: raw['userId']?.toString() ?? '',
+      name: raw['name']?.toString() ?? 'Runner',
+      avatarUrl: raw['avatarUrl']?.toString(),
+      location: LatLng(latitude, longitude),
+      updatedAt: DateTime.tryParse(raw['updatedAt']?.toString() ?? ''),
     );
   }
 }

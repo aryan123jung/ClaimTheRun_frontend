@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:clain_the_run/core/api/api_endpoints.dart';
+import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/leaderboard/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/message/data/services/message_socket_service.dart';
 import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
 import 'package:clain_the_run/features/social/presentation/state/social_state.dart';
 import 'package:clain_the_run/features/social/presentation/view_model/social_view_model.dart';
@@ -186,16 +188,16 @@ class _GroupRunDashboardScreenState
   }
 }
 
-class GroupRunLiveScreen extends StatefulWidget {
+class GroupRunLiveScreen extends ConsumerStatefulWidget {
   const GroupRunLiveScreen({super.key, required this.group});
 
   final GroupEntity group;
 
   @override
-  State<GroupRunLiveScreen> createState() => _GroupRunLiveScreenState();
+  ConsumerState<GroupRunLiveScreen> createState() => _GroupRunLiveScreenState();
 }
 
-class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
+class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   static const _mapCenter = LatLng(27.7172, 85.3240);
   static const _idleZoom = 15.0;
   static const _runningZoom = 17.0;
@@ -228,6 +230,7 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
 ''';
 
   final RunApiService _runApiService = RunApiService();
+  late final MessageSocketService _messageSocketService;
   MapLibreMapController? _mapController;
   bool _isMapStyleReady = false;
   bool _hasLocationPermission = false;
@@ -236,6 +239,9 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
   Circle? _userLocationCircle;
   Circle? _userLocationGlowCircle;
   Line? _routeLine;
+  final Map<String, GroupRunParticipantSocketPayload> _activeParticipants =
+      <String, GroupRunParticipantSocketPayload>{};
+  final Map<String, Circle> _memberCircles = <String, Circle>{};
   StreamSubscription<Position>? _positionSubscription;
   Timer? _elapsedTimer;
   DateTime? _startedAt;
@@ -246,6 +252,13 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
   @override
   void initState() {
     super.initState();
+    _messageSocketService = ref.read(messageSocketServiceProvider);
+    _messageSocketService.setOnGroupRunParticipants(_handleRunParticipants);
+    _messageSocketService.setOnGroupRunUserJoined(_handleRunParticipantJoined);
+    _messageSocketService.setOnGroupRunUserUpdated(
+      _handleRunParticipantUpdated,
+    );
+    _messageSocketService.setOnGroupRunUserLeft(_handleRunParticipantLeft);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureLocationPermission();
     });
@@ -288,6 +301,7 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
         _currentUserLocation = point;
       });
       await _syncUserMarker();
+      await _joinRunPresence(point);
       await _animateToUser(
         point,
         isRunning: _isRunning,
@@ -358,6 +372,7 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
               _currentUserLocation = point;
             });
             await _syncUserMarker();
+            await _updateRunPresence(point);
             if (_isRunning) {
               await _recordPoint(point);
             }
@@ -407,6 +422,117 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
     }
 
     await controller.updateLine(_routeLine!, options);
+  }
+
+  Future<void> _syncRemoteParticipantMarkers() async {
+    final controller = _mapController;
+    if (!_isMapStyleReady || controller == null) return;
+
+    final authState = ref.read(authViewModelProvider);
+    final selfId = authState.authEntity?.id ?? '';
+    final desiredIds = _activeParticipants.keys
+        .where((id) => id.isNotEmpty && id != selfId)
+        .toSet();
+
+    final staleIds = _memberCircles.keys
+        .where((id) => !desiredIds.contains(id))
+        .toList();
+    for (final id in staleIds) {
+      final circle = _memberCircles.remove(id);
+      if (circle != null) {
+        await controller.removeCircle(circle);
+      }
+    }
+
+    for (final entry in _activeParticipants.entries) {
+      if (entry.key == selfId) continue;
+      final participant = entry.value;
+      final existing = _memberCircles[entry.key];
+      final options = CircleOptions(
+        geometry: participant.location,
+        circleRadius: 9,
+        circleColor: '#4F7DFF',
+        circleStrokeColor: '#FFFFFF',
+        circleStrokeWidth: 3,
+        circleOpacity: 0.95,
+      );
+      if (existing == null) {
+        _memberCircles[entry.key] = await controller.addCircle(options);
+      } else {
+        await controller.updateCircle(existing, options);
+      }
+    }
+  }
+
+  Future<void> _joinRunPresence(LatLng point) async {
+    final authState = ref.read(authViewModelProvider);
+    final self = authState.authEntity;
+    final selfId = self?.id ?? '';
+    if (selfId.isEmpty) return;
+
+    await _messageSocketService.connect();
+    _messageSocketService.joinGroupRun(
+      communityId: widget.group.id,
+      userId: selfId,
+      name: self?.fullname ?? 'Runner',
+      avatarUrl: self?.profileUrl,
+      location: point,
+    );
+  }
+
+  Future<void> _updateRunPresence(LatLng point) async {
+    final authState = ref.read(authViewModelProvider);
+    final selfId = authState.authEntity?.id ?? '';
+    if (selfId.isEmpty) return;
+
+    _messageSocketService.updateGroupRunLocation(
+      communityId: widget.group.id,
+      userId: selfId,
+      location: point,
+    );
+  }
+
+  void _handleRunParticipants(
+    String communityId,
+    List<GroupRunParticipantSocketPayload> participants,
+  ) {
+    if (communityId != widget.group.id || !mounted) return;
+    setState(() {
+      for (final participant in participants) {
+        _activeParticipants[participant.userId] = participant;
+      }
+    });
+    _syncRemoteParticipantMarkers();
+  }
+
+  void _handleRunParticipantJoined(
+    String communityId,
+    GroupRunParticipantSocketPayload participant,
+  ) {
+    if (communityId != widget.group.id || !mounted) return;
+    setState(() {
+      _activeParticipants[participant.userId] = participant;
+    });
+    _syncRemoteParticipantMarkers();
+  }
+
+  void _handleRunParticipantUpdated(
+    String communityId,
+    GroupRunParticipantSocketPayload participant,
+  ) {
+    if (communityId != widget.group.id || !mounted) return;
+    setState(() {
+      _activeParticipants[participant.userId] = participant;
+    });
+    _syncRemoteParticipantMarkers();
+  }
+
+  void _handleRunParticipantLeft(String communityId, String userId) {
+    if (communityId != widget.group.id || !mounted) return;
+    setState(() {
+      _activeParticipants.remove(userId);
+    });
+    _syncRemoteParticipantMarkers();
   }
 
   Future<void> _animateToUser(
@@ -467,12 +593,16 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
     }
     _startElapsedTimer();
     await _startTracking();
+    if (_currentUserLocation != null) {
+      await _joinRunPresence(_currentUserLocation!);
+    }
   }
 
   Future<void> _finishRun() async {
     await _positionSubscription?.cancel();
     _positionSubscription = null;
     _elapsedTimer?.cancel();
+    _messageSocketService.leaveGroupRun(widget.group.id);
     if (!mounted) return;
     setState(() {
       _isRunning = false;
@@ -510,6 +640,11 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
 
   @override
   void dispose() {
+    _messageSocketService.setOnGroupRunParticipants(null);
+    _messageSocketService.setOnGroupRunUserJoined(null);
+    _messageSocketService.setOnGroupRunUserUpdated(null);
+    _messageSocketService.setOnGroupRunUserLeft(null);
+    _messageSocketService.leaveGroupRun(widget.group.id);
     _positionSubscription?.cancel();
     _elapsedTimer?.cancel();
     super.dispose();
@@ -541,6 +676,7 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
               _isMapStyleReady = true;
               await _syncUserMarker();
               await _syncRouteLine();
+              await _syncRemoteParticipantMarkers();
             },
             compassEnabled: false,
             myLocationEnabled: false,
@@ -643,6 +779,18 @@ class _GroupRunLiveScreenState extends State<GroupRunLiveScreen> {
               ),
             ),
           ),
+          if (_activeParticipants.isNotEmpty)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 218,
+              child: SafeArea(
+                top: false,
+                child: _ActiveGroupMembersCard(
+                  participants: _activeParticipants.values.toList(),
+                ),
+              ),
+            ),
           Positioned(
             left: 16,
             right: 16,
@@ -1176,6 +1324,86 @@ class _GroupMetricTile extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveGroupMembersCard extends StatelessWidget {
+  const _ActiveGroupMembersCard({required this.participants});
+
+  final List<GroupRunParticipantSocketPayload> participants;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final visible = participants.take(5).toList();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xE6101B25) : const Color(0xF8FFFFFF),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? const Color(0xFF233241) : const Color(0xFFE2EADF),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Active Members on Map',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : const Color(0xFF111111),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final participant in visible)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF13212D)
+                        : const Color(0xFFF3F7EE),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4F7DFF),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        participant.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF1B241D),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ],
       ),
