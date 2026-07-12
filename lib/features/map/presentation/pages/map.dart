@@ -1194,6 +1194,22 @@ class _MapScreenState extends State<MapScreen> {
     _positionSubscription = null;
   }
 
+  Future<void> _openGroupRunDashboard() async {
+    if (_isRunning) {
+      return;
+    }
+
+    if (mounted && _selectedMode != MapRunMode.solo) {
+      setState(() {
+        _selectedMode = MapRunMode.solo;
+      });
+    }
+
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const GroupRunDashboardScreen()));
+  }
+
   Future<void> _syncUserLocationMarker() async {
     final controller = _mapController;
     final userLocation = _currentUserLocation;
@@ -1720,6 +1736,10 @@ class _MapScreenState extends State<MapScreen> {
                         _RunTypeToggle(
                           selectedMode: _selectedMode,
                           onModeChanged: (mode) {
+                            if (mode == MapRunMode.group) {
+                              _openGroupRunDashboard();
+                              return;
+                            }
                             setState(() {
                               _selectedMode = mode;
                             });
@@ -1762,11 +1782,7 @@ class _MapScreenState extends State<MapScreen> {
               territoryCount: _territoryBoundary.length >= 3 ? 1 : 0,
               onStartPressed: () {
                 if (_selectedMode == MapRunMode.group) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const GroupRunDashboardScreen(),
-                    ),
-                  );
+                  _openGroupRunDashboard();
                   return;
                 }
                 _startRun();
@@ -1775,11 +1791,7 @@ class _MapScreenState extends State<MapScreen> {
               onResetPressed: _resetRunPreview,
               onTerritoriesPressed: () async {
                 if (_selectedMode == MapRunMode.group) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const GroupRunDashboardScreen(),
-                    ),
-                  );
+                  _openGroupRunDashboard();
                   return;
                 }
                 final deleted = await Navigator.of(context).push<bool>(
