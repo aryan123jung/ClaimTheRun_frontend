@@ -1,747 +1,218 @@
-// import 'package:flutter/material.dart';
-
-// enum _LeaderboardAudience { global, friends }
-
-// enum _LeaderboardMode { solo, group }
-
-// class LeaderboardScreen extends StatefulWidget {
-//   const LeaderboardScreen({super.key});
-
-//   @override
-//   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
-// }
-
-// class _LeaderboardScreenState extends State<LeaderboardScreen> {
-//   _LeaderboardAudience _selectedAudience = _LeaderboardAudience.global;
-//   _LeaderboardMode _selectedMode = _LeaderboardMode.solo;
-
-//   static const List<_LeaderboardEntry> _entries = [
-//     _LeaderboardEntry(
-//       rank: 1,
-//       name: 'Ram Khadka',
-//       distance: '2000 km',
-//       time: '15:23:43',
-//       avatarAsset: 'assets/images/asv.png',
-//       fallbackColor: Color(0xFFE1ECF7),
-//     ),
-//     _LeaderboardEntry(
-//       rank: 2,
-//       name: 'Shyam Karki',
-//       distance: '2000 km',
-//       time: '15:23:43',
-//       avatarAsset: 'assets/images/dszfxgchvjbknlm.png',
-//       fallbackColor: Color(0xFFEBD7B7),
-//     ),
-//     _LeaderboardEntry(
-//       rank: 3,
-//       name: 'Oliver Shrestha',
-//       distance: '2000 km',
-//       time: '15:23:43',
-//       avatarAsset: 'assets/images/dszfxgchvjbknlm_1.png',
-//       fallbackColor: Color(0xFFD8EAD9),
-//     ),
-//     _LeaderboardEntry(
-//       rank: 4,
-//       name: 'Kaji Pandey',
-//       distance: '2000 km',
-//       time: '15:23:43',
-//       fallbackColor: Color(0xFF536A7A),
-//     ),
-//     _LeaderboardEntry(
-//       rank: 5,
-//       name: 'Hari Bahadur',
-//       distance: '2000 km',
-//       time: '15:23:43',
-//       fallbackColor: Color(0xFF723746),
-//     ),
-//     _LeaderboardEntry(
-//       rank: 6,
-//       name: 'Sarwogya Rana',
-//       distance: '2000 km',
-//       time: '15:23:43',
-//       fallbackColor: Color(0xFF42505A),
-//     ),
-//     _LeaderboardEntry(
-//       rank: 7,
-//       name: 'Kiran Ghiraula',
-//       distance: '2000 km',
-//       time: '15:23:43',
-//       fallbackColor: Color(0xFF2E3341),
-//     ),
-//   ];
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: const Color(0xFFF7F7F5),
-//       body: SafeArea(
-//         bottom: false,
-//         child: Column(
-//           children: [
-//             Expanded(
-//               child: SingleChildScrollView(
-//                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     const Text(
-//                       'Leaderboard',
-//                       style: TextStyle(
-//                         fontSize: 28,
-//                         fontWeight: FontWeight.w800,
-//                         color: Color(0xFF121212),
-//                       ),
-//                     ),
-//                     const SizedBox(height: 8),
-//                     const Text(
-//                       'Compete, Improve, Be the best',
-//                       style: TextStyle(
-//                         fontSize: 14,
-//                         fontWeight: FontWeight.w500,
-//                         color: Color(0xFF8F8F8F),
-//                       ),
-//                     ),
-//                     const SizedBox(height: 28),
-//                     _AudienceToggle(
-//                       selectedAudience: _selectedAudience,
-//                       onSelected: (audience) {
-//                         setState(() {
-//                           _selectedAudience = audience;
-//                         });
-//                       },
-//                     ),
-//                     const SizedBox(height: 28),
-//                     Center(
-//                       child: _ModeToggle(
-//                         selectedMode: _selectedMode,
-//                         onSelected: (mode) {
-//                           setState(() {
-//                             _selectedMode = mode;
-//                           });
-//                         },
-//                       ),
-//                     ),
-//                     const SizedBox(height: 28),
-//                     ..._entries.map(
-//                       (entry) => Padding(
-//                         padding: const EdgeInsets.only(bottom: 16),
-//                         child: _LeaderboardCard(entry: entry),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// class _AudienceToggle extends StatelessWidget {
-//   const _AudienceToggle({
-//     required this.selectedAudience,
-//     required this.onSelected,
-//   });
-
-//   final _LeaderboardAudience selectedAudience;
-//   final ValueChanged<_LeaderboardAudience> onSelected;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       height: 88,
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(28),
-//         border: Border.all(color: const Color(0xFF808080), width: 1.2),
-//       ),
-//       child: Row(
-//         children: [
-//           Expanded(
-//             child: _AudienceOption(
-//               icon: Icons.public,
-//               label: 'Global',
-//               selected: selectedAudience == _LeaderboardAudience.global,
-//               onTap: () => onSelected(_LeaderboardAudience.global),
-//             ),
-//           ),
-//           Container(width: 1.2, color: const Color(0xFFD4D4D4)),
-//           Expanded(
-//             child: _AudienceOption(
-//               icon: Icons.group_outlined,
-//               label: 'Friends',
-//               selected: selectedAudience == _LeaderboardAudience.friends,
-//               onTap: () => onSelected(_LeaderboardAudience.friends),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-
-// class _AudienceOption extends StatelessWidget {
-//   const _AudienceOption({
-//     required this.icon,
-//     required this.label,
-//     required this.selected,
-//     required this.onTap,
-//   });
-
-//   final IconData icon;
-//   final String label;
-//   final bool selected;
-//   final VoidCallback onTap;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final color = selected ? const Color(0xFF21B455) : const Color(0xFFA9AEAC);
-
-//     return Material(
-//       color: Colors.transparent,
-//       child: InkWell(
-//         borderRadius: BorderRadius.circular(28),
-//         onTap: onTap,
-//         child: Center(
-//           child: Row(
-//             mainAxisAlignment: MainAxisAlignment.center,
-//             children: [
-//               Icon(icon, size: 38, color: color),
-//               const SizedBox(width: 12),
-//               Text(
-//                 label,
-//                 style: TextStyle(
-//                   fontSize: 28,
-//                   fontWeight: FontWeight.w700,
-//                   color: color,
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// class _ModeToggle extends StatelessWidget {
-//   const _ModeToggle({required this.selectedMode, required this.onSelected});
-
-//   final _LeaderboardMode selectedMode;
-//   final ValueChanged<_LeaderboardMode> onSelected;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       width: 314,
-//       height: 58,
-//       padding: const EdgeInsets.all(4),
-//       decoration: BoxDecoration(
-//         color: const Color(0xFFE9E9E9),
-//         borderRadius: BorderRadius.circular(30),
-//       ),
-//       child: Row(
-//         children: [
-//           Expanded(
-//             child: _ModeOption(
-//               label: 'Solo',
-//               active: selectedMode == _LeaderboardMode.solo,
-//               onTap: () => onSelected(_LeaderboardMode.solo),
-//             ),
-//           ),
-//           Expanded(
-//             child: _ModeOption(
-//               label: 'Group',
-//               active: selectedMode == _LeaderboardMode.group,
-//               onTap: () => onSelected(_LeaderboardMode.group),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-
-// class _ModeOption extends StatelessWidget {
-//   const _ModeOption({
-//     required this.label,
-//     required this.active,
-//     required this.onTap,
-//   });
-
-//   final String label;
-//   final bool active;
-//   final VoidCallback onTap;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Material(
-//       color: Colors.transparent,
-//       child: InkWell(
-//         borderRadius: BorderRadius.circular(26),
-//         onTap: onTap,
-//         child: AnimatedContainer(
-//           duration: const Duration(milliseconds: 180),
-//           decoration: BoxDecoration(
-//             color: active ? const Color(0xFF28C55B) : Colors.transparent,
-//             borderRadius: BorderRadius.circular(26),
-//             boxShadow: active
-//                 ? const [
-//                     BoxShadow(
-//                       color: Color(0x3328C55B),
-//                       blurRadius: 16,
-//                       offset: Offset(0, 8),
-//                     ),
-//                   ]
-//                 : null,
-//           ),
-//           alignment: Alignment.center,
-//           child: Text(
-//             label,
-//             style: TextStyle(
-//               fontSize: 24,
-//               fontWeight: FontWeight.w700,
-//               color: active ? Colors.white : const Color(0xFF8F9390),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// class _LeaderboardCard extends StatelessWidget {
-//   const _LeaderboardCard({required this.entry});
-
-//   final _LeaderboardEntry entry;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final bool isPodium = entry.rank <= 3;
-
-//     return Container(
-//       height: 132,
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(20),
-//         border: Border.all(color: const Color(0xFFD0D0D0), width: 1.2),
-//       ),
-//       child: Row(
-//         children: [
-//           Container(
-//             width: 122,
-//             decoration: BoxDecoration(
-//               gradient: isPodium
-//                   ? LinearGradient(
-//                       begin: Alignment.centerLeft,
-//                       end: Alignment.centerRight,
-//                       colors: _podiumColors(entry.rank),
-//                     )
-//                   : null,
-//               borderRadius: const BorderRadius.only(
-//                 topLeft: Radius.circular(20),
-//                 bottomLeft: Radius.circular(20),
-//               ),
-//             ),
-//             alignment: Alignment.center,
-//             child: isPodium
-//                 ? _PodiumBadge(rank: entry.rank)
-//                 : Text(
-//                     '${entry.rank}',
-//                     style: const TextStyle(
-//                       fontSize: 36,
-//                       fontWeight: FontWeight.w700,
-//                       color: Color(0xFF454545),
-//                     ),
-//                   ),
-//           ),
-//           Expanded(
-//             child: Padding(
-//               padding: const EdgeInsets.symmetric(horizontal: 16),
-//               child: Row(
-//                 children: [
-//                   _LeaderboardAvatar(entry: entry),
-//                   const SizedBox(width: 16),
-//                   Expanded(
-//                     child: Text(
-//                       entry.name,
-//                       style: const TextStyle(
-//                         fontSize: 26,
-//                         fontWeight: FontWeight.w700,
-//                         color: Color(0xFF4A4A4A),
-//                       ),
-//                       maxLines: 1,
-//                       overflow: TextOverflow.ellipsis,
-//                     ),
-//                   ),
-//                   const SizedBox(width: 12),
-//                   Column(
-//                     mainAxisAlignment: MainAxisAlignment.center,
-//                     crossAxisAlignment: CrossAxisAlignment.end,
-//                     children: [
-//                       Text(
-//                         entry.distance,
-//                         style: const TextStyle(
-//                           fontSize: 18,
-//                           fontWeight: FontWeight.w600,
-//                           color: Color(0xFF4B4B4B),
-//                         ),
-//                       ),
-//                       const SizedBox(height: 6),
-//                       Text(
-//                         entry.time,
-//                         style: const TextStyle(
-//                           fontSize: 14,
-//                           fontWeight: FontWeight.w700,
-//                           color: Color(0xFF4B4B4B),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   List<Color> _podiumColors(int rank) {
-//     switch (rank) {
-//       case 1:
-//         return const [Color(0xFFF6C548), Color(0xFFFFF7E3)];
-//       case 2:
-//         return const [Color(0xFFAFC7E8), Color(0xFFF6F8FC)];
-//       default:
-//         return const [Color(0xFFF5A36D), Color(0xFFFFF0E8)];
-//     }
-//   }
-// }
-
-// class _LeaderboardAvatar extends StatelessWidget {
-//   const _LeaderboardAvatar({required this.entry});
-
-//   final _LeaderboardEntry entry;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final String initials = entry.name
-//         .split(' ')
-//         .where((part) => part.isNotEmpty)
-//         .take(2)
-//         .map((part) => part[0])
-//         .join();
-
-//     return Container(
-//       width: 66,
-//       height: 66,
-//       decoration: BoxDecoration(
-//         shape: BoxShape.circle,
-//         border: Border.all(color: const Color(0xFF5CB748), width: 1.6),
-//       ),
-//       child: ClipOval(
-//         child: entry.avatarAsset != null
-//             ? Image.asset(
-//                 entry.avatarAsset!,
-//                 fit: BoxFit.cover,
-//                 errorBuilder: (_, _, _) => _AvatarFallback(
-//                   backgroundColor: entry.fallbackColor,
-//                   initials: initials,
-//                 ),
-//               )
-//             : _AvatarFallback(
-//                 backgroundColor: entry.fallbackColor,
-//                 initials: initials,
-//               ),
-//       ),
-//     );
-//   }
-// }
-
-// class _AvatarFallback extends StatelessWidget {
-//   const _AvatarFallback({
-//     required this.backgroundColor,
-//     required this.initials,
-//   });
-
-//   final Color backgroundColor;
-//   final String initials;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       color: backgroundColor,
-//       alignment: Alignment.center,
-//       child: Text(
-//         initials,
-//         style: const TextStyle(
-//           fontSize: 22,
-//           fontWeight: FontWeight.w700,
-//           color: Colors.white,
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// class _PodiumBadge extends StatelessWidget {
-//   const _PodiumBadge({required this.rank});
-
-//   final int rank;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final Color medalColor = switch (rank) {
-//       1 => const Color(0xFFFFCC39),
-//       2 => const Color(0xFFD8D8D8),
-//       _ => const Color(0xFFFF9C3A),
-//     };
-
-//     final Color medalBorder = switch (rank) {
-//       1 => const Color(0xFFD9A423),
-//       2 => const Color(0xFFADADAD),
-//       _ => const Color(0xFFD57B22),
-//     };
-
-//     return Column(
-//       mainAxisSize: MainAxisSize.min,
-//       children: [
-//         const Icon(Icons.workspace_premium, size: 44, color: Color(0xFF2890E0)),
-//         Transform.translate(
-//           offset: const Offset(0, -6),
-//           child: Container(
-//             width: 46,
-//             height: 46,
-//             decoration: BoxDecoration(
-//               shape: BoxShape.circle,
-//               color: medalColor,
-//               border: Border.all(color: medalBorder, width: 1.5),
-//             ),
-//             alignment: Alignment.center,
-//             child: Text(
-//               '$rank',
-//               style: TextStyle(
-//                 fontSize: 24,
-//                 fontWeight: FontWeight.w800,
-//                 color: rank == 2
-//                     ? const Color(0xFF686868)
-//                     : const Color(0xFFF18816),
-//               ),
-//             ),
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-// }
-
-// class _LeaderboardEntry {
-//   const _LeaderboardEntry({
-//     required this.rank,
-//     required this.name,
-//     required this.distance,
-//     required this.time,
-//     required this.fallbackColor,
-//     this.avatarAsset,
-//   });
-
-//   final int rank;
-//   final String name;
-//   final String distance;
-//   final String time;
-//   final String? avatarAsset;
-//   final Color fallbackColor;
-// }
-
+import 'package:clain_the_run/core/api/api_endpoints.dart';
+import 'package:clain_the_run/features/addfriend/domain/entities/friend_user_entity.dart';
+import 'package:clain_the_run/features/addfriend/domain/usecases/search_users_usecase.dart';
+import 'package:clain_the_run/features/auth/domain/entities/auth_entity.dart';
+import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/leaderboard/presentation/widgets/card.dart';
+import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
+import 'package:clain_the_run/features/social/domain/usecases/get_groups_usecase.dart';
+import 'package:clain_the_run/features/social/presentation/models/friend_run_summary.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum LeaderboardScope { global, friends }
 
 enum LeaderboardMode { solo, group }
 
-class LeaderboardScreen extends StatefulWidget {
+class LeaderboardScreen extends ConsumerStatefulWidget {
   const LeaderboardScreen({super.key});
 
   @override
-  State<LeaderboardScreen> createState() => _LeaderboardScreenState();
+  ConsumerState<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> {
+class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   static const _brandGreen = Color(0xFF72B63E);
   static const _activeTextGreen = Color(0xFF3B6D11);
 
+  final RunApiService _runApiService = RunApiService();
+
   LeaderboardScope _scope = LeaderboardScope.global;
   LeaderboardMode _mode = LeaderboardMode.solo;
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<LeaderboardEntry> _entries = const [];
+  List<GroupLeaderboardEntry> _groupEntries = const [];
+  List<LeaderboardEntry> _friendEntries = const [];
 
-  // Placeholder data — replace with real leaderboard data from your backend.
-  final List<LeaderboardEntry> _entries = const [
-    LeaderboardEntry(
-      rank: 1,
-      name: 'Ram Khadka',
-      avatarUrl: 'https://i.pravatar.cc/150?img=12',
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    LeaderboardEntry(
-      rank: 2,
-      name: 'Shyam Karki',
-      avatarUrl: 'https://i.pravatar.cc/150?img=13',
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    LeaderboardEntry(
-      rank: 3,
-      name: 'Oliver Shrestha',
-      avatarUrl: 'https://i.pravatar.cc/150?img=14',
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    LeaderboardEntry(
-      rank: 4,
-      name: 'Kaji Pandey',
-      avatarUrl: 'https://i.pravatar.cc/150?img=15',
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    LeaderboardEntry(
-      rank: 5,
-      name: 'Hari Bahadur',
-      avatarUrl: 'https://i.pravatar.cc/150?img=16',
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    LeaderboardEntry(
-      rank: 6,
-      name: 'You',
-      avatarUrl: 'https://i.pravatar.cc/150?img=17',
-      distanceKm: 2000,
-      time: '15:23:43',
-      isCurrentUser: true,
-    ),
-    LeaderboardEntry(
-      rank: 7,
-      name: 'Kiran Ghiraula',
-      avatarUrl: 'https://i.pravatar.cc/150?img=18',
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadLeaderboard);
+  }
 
-  final List<GroupLeaderboardEntry> _groupEntries = const [
-    GroupLeaderboardEntry(
-      rank: 1,
-      name: 'Ultimate Runners',
-      avatarUrl: 'https://i.pravatar.cc/150?img=21',
-      membersCount: 8,
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    GroupLeaderboardEntry(
-      rank: 2,
-      name: 'The Runners',
-      avatarUrl: 'https://i.pravatar.cc/150?img=22',
-      membersCount: 8,
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    GroupLeaderboardEntry(
-      rank: 3,
-      name: 'Motivated Boys',
-      avatarUrl: 'https://i.pravatar.cc/150?img=23',
-      membersCount: 8,
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    GroupLeaderboardEntry(
-      rank: 4,
-      name: 'Lost in peace',
-      avatarUrl: 'https://i.pravatar.cc/150?img=24',
-      membersCount: 8,
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    GroupLeaderboardEntry(
-      rank: 5,
-      name: 'Wonder Women',
-      avatarUrl: 'https://i.pravatar.cc/150?img=25',
-      membersCount: 8,
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    GroupLeaderboardEntry(
-      rank: 6,
-      name: 'The Him',
-      avatarUrl: 'https://i.pravatar.cc/150?img=26',
-      membersCount: 8,
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-    GroupLeaderboardEntry(
-      rank: 7,
-      name: 'Unstoppable',
-      avatarUrl: 'https://i.pravatar.cc/150?img=27',
-      membersCount: 8,
-      distanceKm: 2000,
-      time: '15:23:43',
-    ),
-  ];
+  Future<void> _loadLeaderboard() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
-  final List<LeaderboardEntry> _friendEntries = const [
-    LeaderboardEntry(
-      rank: 1,
-      name: 'Sujan Thapa',
-      avatarUrl: 'https://i.pravatar.cc/150?img=31',
-      distanceKm: 1980,
-      time: '14:18:31',
-    ),
-    LeaderboardEntry(
-      rank: 2,
-      name: 'Prashant Karki',
-      avatarUrl: 'https://i.pravatar.cc/150?img=32',
-      distanceKm: 1920,
-      time: '14:55:12',
-    ),
-    LeaderboardEntry(
-      rank: 3,
-      name: 'Nabin Gautam',
-      avatarUrl: 'https://i.pravatar.cc/150?img=33',
-      distanceKm: 1880,
-      time: '15:01:09',
-    ),
-    LeaderboardEntry(
-      rank: 4,
-      name: 'Aakriti Bista',
-      avatarUrl: 'https://i.pravatar.cc/150?img=34',
-      distanceKm: 1820,
-      time: '15:12:40',
-    ),
-    LeaderboardEntry(
-      rank: 5,
-      name: 'Sajal Neupane',
-      avatarUrl: 'https://i.pravatar.cc/150?img=35',
-      distanceKm: 1760,
-      time: '15:20:51',
-    ),
-    LeaderboardEntry(
-      rank: 6,
-      name: 'You',
-      avatarUrl: 'https://i.pravatar.cc/150?img=17',
-      distanceKm: 1725,
-      time: '15:23:43',
-      isCurrentUser: true,
-    ),
-    LeaderboardEntry(
-      rank: 7,
-      name: 'Ritesh Khadka',
-      avatarUrl: 'https://i.pravatar.cc/150?img=36',
-      distanceKm: 1690,
-      time: '15:39:18',
-    ),
-  ];
+    try {
+      final currentUser = ref.read(authViewModelProvider).authEntity;
+      final searchUsers = ref.read(searchUsersUsecaseProvider);
+      final getGroups = ref.read(getGroupsUsecaseProvider);
+
+      final usersResult = await searchUsers(
+        const SearchUsersParams(search: ''),
+      );
+      final groupsResult = await getGroups();
+
+      final users = usersResult.fold(
+        (_) => <FriendUserEntity>[],
+        (data) => data,
+      );
+      final groups = groupsResult.fold((_) => <GroupEntity>[], (data) => data);
+
+      final globalEntries = await _buildRunnerEntries(
+        currentUser: currentUser,
+        users: users,
+        includeCurrentUser: true,
+      );
+      final friendEntries = await _buildRunnerEntries(
+        currentUser: currentUser,
+        users: users.where((user) => user.friendStatus == 'FRIEND').toList(),
+        includeCurrentUser: true,
+      );
+      final groupEntries = _buildGroupEntries(groups);
+
+      if (!mounted) return;
+      setState(() {
+        _entries = globalEntries;
+        _friendEntries = friendEntries;
+        _groupEntries = groupEntries;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = error.toString();
+      });
+    }
+  }
+
+  Future<List<LeaderboardEntry>> _buildRunnerEntries({
+    required AuthEntity? currentUser,
+    required List<FriendUserEntity> users,
+    required bool includeCurrentUser,
+  }) async {
+    final seeds = <String, _RunnerSeed>{};
+
+    if (includeCurrentUser && currentUser?.id != null) {
+      seeds[currentUser!.id!] = _RunnerSeed(
+        id: currentUser.id!,
+        fullname: currentUser.fullname,
+        username: currentUser.username,
+        profileUrl: currentUser.profileUrl,
+        isCurrentUser: true,
+      );
+    }
+
+    for (final user in users) {
+      seeds[user.id] = _RunnerSeed(
+        id: user.id,
+        fullname: user.fullname,
+        username: user.username,
+        profileUrl: user.profileUrl,
+        isCurrentUser: currentUser?.id == user.id,
+      );
+    }
+
+    final items = await Future.wait(
+      seeds.values.map((seed) async {
+        final runs = seed.isCurrentUser
+            ? await _runApiService.fetchMyRuns()
+            : await _runApiService.fetchRunsByUserId(seed.id);
+        return MapEntry(seed, FriendRunSummary.fromRuns(runs));
+      }),
+    );
+
+    final entries =
+        items
+            .map(
+              (item) => _RunnerAggregate(
+                name: item.key.fullname.trim().isEmpty
+                    ? item.key.username
+                    : item.key.fullname,
+                avatarUrl: _resolveProfileUrl(
+                  item.key.profileUrl,
+                  item.key.fullname,
+                  item.key.username,
+                ),
+                distanceKm: item.value.totalKm,
+                time: item.value.totalTime,
+                totalRuns: item.value.totalRuns,
+                territories: item.value.territories,
+                isCurrentUser: item.key.isCurrentUser,
+              ),
+            )
+            .toList()
+          ..sort((a, b) {
+            final distanceCompare = b.distanceKm.compareTo(a.distanceKm);
+            if (distanceCompare != 0) return distanceCompare;
+            final territoryCompare = b.territories.compareTo(a.territories);
+            if (territoryCompare != 0) return territoryCompare;
+            return b.totalRuns.compareTo(a.totalRuns);
+          });
+
+    return List<LeaderboardEntry>.generate(
+      entries.length,
+      (index) => LeaderboardEntry(
+        rank: index + 1,
+        name: entries[index].name,
+        avatarUrl: entries[index].avatarUrl,
+        distanceKm: entries[index].distanceKm,
+        time: entries[index].time,
+        isCurrentUser: entries[index].isCurrentUser,
+      ),
+    );
+  }
+
+  List<GroupLeaderboardEntry> _buildGroupEntries(List<GroupEntity> groups) {
+    final rankedGroups = groups.toList()
+      ..sort((a, b) {
+        final memberCompare = b.memberCount.compareTo(a.memberCount);
+        if (memberCompare != 0) return memberCompare;
+        return a.createdAt.compareTo(b.createdAt);
+      });
+
+    return List<GroupLeaderboardEntry>.generate(rankedGroups.length, (index) {
+      final group = rankedGroups[index];
+      return GroupLeaderboardEntry(
+        rank: index + 1,
+        name: group.name,
+        avatarUrl: _resolveGroupUrl(group.imageUrl, group.name),
+        membersCount: group.memberCount,
+        distanceKm: group.memberCount.toDouble(),
+        time: _groupSubtitle(group),
+      );
+    });
+  }
+
+  String _resolveProfileUrl(String? raw, String fullname, String username) {
+    if (raw != null && raw.trim().isNotEmpty) {
+      return ApiEndpoints.profileImageUrl(raw);
+    }
+    final fallbackName = fullname.trim().isNotEmpty ? fullname : username;
+    return 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(fallbackName)}&background=E6F3DC&color=3B6D11';
+  }
+
+  String _resolveGroupUrl(String? raw, String groupName) {
+    if (raw != null && raw.trim().isNotEmpty) {
+      return ApiEndpoints.uploadUrl(raw);
+    }
+    return 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(groupName)}&background=E6F3DC&color=3B6D11';
+  }
+
+  String _groupSubtitle(GroupEntity group) {
+    if (group.description.trim().isNotEmpty) {
+      return group.description.trim();
+    }
+    return '@${group.creator.username}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -834,7 +305,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ),
             const SizedBox(height: 30),
             Expanded(
-              child: _scope == LeaderboardScope.global
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                  ? _LeaderboardErrorView(
+                      message: _errorMessage!,
+                      onRetry: _loadLeaderboard,
+                    )
+                  : _scope == LeaderboardScope.global
                   ? _GlobalLeaderboardView(
                       mode: _mode,
                       entries: _entries,
@@ -862,19 +340,32 @@ class _GlobalLeaderboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      itemCount: mode == LeaderboardMode.solo
-          ? entries.length
-          : groupEntries.length,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: mode == LeaderboardMode.solo
-              ? GlobalSoloLeaderboardCard(entry: entries[index])
-              : GlobalGroupLeaderboardCard(entry: groupEntries[index]),
-        );
-      },
+    final itemCount = mode == LeaderboardMode.solo
+        ? entries.length
+        : groupEntries.length;
+
+    if (itemCount == 0) {
+      return const _EmptyLeaderboardView(
+        title: 'No leaderboard data yet',
+        subtitle: 'Save runs or join groups to populate this leaderboard.',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {},
+      notificationPredicate: (_) => false,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        itemCount: itemCount,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: mode == LeaderboardMode.solo
+                ? GlobalSoloLeaderboardCard(entry: entries[index])
+                : GlobalGroupLeaderboardCard(entry: groupEntries[index]),
+          );
+        },
+      ),
     );
   }
 }
@@ -886,6 +377,13 @@ class _FriendsLeaderboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return const _EmptyLeaderboardView(
+        title: 'No friends ranked yet',
+        subtitle: 'Add friends and save runs to see the friends leaderboard.',
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       itemCount: entries.length,
@@ -895,6 +393,89 @@ class _FriendsLeaderboardView extends StatelessWidget {
           child: FriendsLeaderboardCard(entry: entries[index]),
         );
       },
+    );
+  }
+}
+
+class _LeaderboardErrorView extends StatelessWidget {
+  const _LeaderboardErrorView({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 34,
+              color: Color(0xFFD45656),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Unable to load leaderboard',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF8B8B8B)),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _LeaderboardScreenState._brandGreen,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyLeaderboardView extends StatelessWidget {
+  const _EmptyLeaderboardView({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.emoji_events_outlined,
+              size: 34,
+              color: _LeaderboardScreenState._brandGreen,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF8B8B8B)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1064,4 +645,40 @@ class _SegmentButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RunnerSeed {
+  const _RunnerSeed({
+    required this.id,
+    required this.fullname,
+    required this.username,
+    required this.profileUrl,
+    required this.isCurrentUser,
+  });
+
+  final String id;
+  final String fullname;
+  final String username;
+  final String? profileUrl;
+  final bool isCurrentUser;
+}
+
+class _RunnerAggregate {
+  const _RunnerAggregate({
+    required this.name,
+    required this.avatarUrl,
+    required this.distanceKm,
+    required this.time,
+    required this.totalRuns,
+    required this.territories,
+    required this.isCurrentUser,
+  });
+
+  final String name;
+  final String avatarUrl;
+  final double distanceKm;
+  final String time;
+  final int totalRuns;
+  final int territories;
+  final bool isCurrentUser;
 }
