@@ -5,9 +5,13 @@ import 'package:clain_the_run/features/auth/domain/entities/auth_entity.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/leaderboard/presentation/widgets/card.dart';
 import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
+import 'package:clain_the_run/features/profile/presentation/pages/profile.dart';
 import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
 import 'package:clain_the_run/features/social/domain/usecases/get_groups_usecase.dart';
 import 'package:clain_the_run/features/social/presentation/models/friend_run_summary.dart';
+import 'package:clain_the_run/features/social/presentation/pages/friend_profile_screen.dart';
+import 'package:clain_the_run/features/social/presentation/pages/group_profile_screen.dart';
+import 'package:clain_the_run/features/social/presentation/widgets/friendcard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,6 +39,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   List<LeaderboardEntry> _entries = const [];
   List<GroupLeaderboardEntry> _groupEntries = const [];
   List<LeaderboardEntry> _friendEntries = const [];
+  Map<String, FriendUserEntity> _usersByUsername = const {};
+  Map<String, GroupEntity> _groupsById = const {};
+  Map<String, GroupEntity> _groupsByName = const {};
 
   @override
   void initState() {
@@ -83,6 +90,15 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         _entries = globalEntries;
         _friendEntries = friendEntries;
         _groupEntries = groupEntries;
+        _usersByUsername = {
+          for (final user in users)
+            if (user.username.trim().isNotEmpty) user.username.trim(): user,
+        };
+        _groupsById = {for (final group in groups) group.id: group};
+        _groupsByName = {
+          for (final group in groups)
+            if (group.name.trim().isNotEmpty) group.name.trim(): group,
+        };
         _isLoading = false;
       });
     } catch (error) {
@@ -92,6 +108,35 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         _errorMessage = error.toString();
       });
     }
+  }
+
+  List<_RunnerSeed> seedsFrom(
+    AuthEntity? currentUser,
+    List<FriendUserEntity> users,
+  ) {
+    final seeds = <String, _RunnerSeed>{};
+
+    if (currentUser?.id != null) {
+      seeds[currentUser!.id!] = _RunnerSeed(
+        id: currentUser.id!,
+        fullname: currentUser.fullname,
+        username: currentUser.username,
+        profileUrl: currentUser.profileUrl,
+        isCurrentUser: true,
+      );
+    }
+
+    for (final user in users) {
+      seeds[user.id] = _RunnerSeed(
+        id: user.id,
+        fullname: user.fullname,
+        username: user.username,
+        profileUrl: user.profileUrl,
+        isCurrentUser: currentUser?.id == user.id,
+      );
+    }
+
+    return seeds.values.toList();
   }
 
   Future<List<LeaderboardEntry>> _buildRunnerEntries({
@@ -137,6 +182,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 name: item.key.fullname.trim().isEmpty
                     ? item.key.username
                     : item.key.fullname,
+                id: item.key.id,
+                username: item.key.username,
                 avatarUrl: _resolveProfileUrl(
                   item.key.profileUrl,
                   item.key.fullname,
@@ -161,8 +208,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     return List<LeaderboardEntry>.generate(
       entries.length,
       (index) => LeaderboardEntry(
+        id: entries[index].id,
         rank: index + 1,
         name: entries[index].name,
+        username: entries[index].username,
         avatarUrl: entries[index].avatarUrl,
         distanceKm: entries[index].distanceKm,
         time: entries[index].time,
@@ -182,6 +231,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     return List<GroupLeaderboardEntry>.generate(rankedGroups.length, (index) {
       final group = rankedGroups[index];
       return GroupLeaderboardEntry(
+        id: group.id,
         rank: index + 1,
         name: group.name,
         avatarUrl: _resolveGroupUrl(group.imageUrl, group.name),
@@ -317,13 +367,64 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                       mode: _mode,
                       entries: _entries,
                       groupEntries: _groupEntries,
+                      onUserTap: _openUserProfile,
+                      onGroupTap: _openGroupProfile,
                     )
-                  : _FriendsLeaderboardView(entries: _friendEntries),
+                  : _FriendsLeaderboardView(
+                      entries: _friendEntries,
+                      onUserTap: _openUserProfile,
+                    ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openUserProfile(LeaderboardEntry entry) async {
+    if (entry.isCurrentUser) {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+      return;
+    }
+
+    final user = _usersByUsername[entry.username.trim()];
+    if (user == null) return;
+
+    final friend = FriendModel(
+      id: user.id,
+      name: user.fullname,
+      avatarUrl: entry.avatarUrl,
+      totalKm: entry.distanceKm,
+      territories: 0,
+    );
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FriendProfileScreen(
+          friend: friend,
+          bio: '@${user.username}',
+          posts: const [],
+          initialSummary: const FriendRunSummary.empty(),
+          friendActionLabel: switch (user.friendStatus) {
+            'FRIEND' => 'Remove Friend',
+            'PENDING_OUTGOING' => 'Cancel Request',
+            'NONE' => 'Add Friend',
+            _ => null,
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openGroupProfile(GroupLeaderboardEntry entry) async {
+    final group = _groupsById[entry.id] ?? _groupsByName[entry.name.trim()];
+    if (group == null) return;
+
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => GroupProfileScreen(group: group)));
   }
 }
 
@@ -332,11 +433,15 @@ class _GlobalLeaderboardView extends StatelessWidget {
     required this.mode,
     required this.entries,
     required this.groupEntries,
+    required this.onUserTap,
+    required this.onGroupTap,
   });
 
   final LeaderboardMode mode;
   final List<LeaderboardEntry> entries;
   final List<GroupLeaderboardEntry> groupEntries;
+  final ValueChanged<LeaderboardEntry> onUserTap;
+  final ValueChanged<GroupLeaderboardEntry> onGroupTap;
 
   @override
   Widget build(BuildContext context) {
@@ -361,8 +466,14 @@ class _GlobalLeaderboardView extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: mode == LeaderboardMode.solo
-                ? GlobalSoloLeaderboardCard(entry: entries[index])
-                : GlobalGroupLeaderboardCard(entry: groupEntries[index]),
+                ? GlobalSoloLeaderboardCard(
+                    entry: entries[index],
+                    onTap: () => onUserTap(entries[index]),
+                  )
+                : GlobalGroupLeaderboardCard(
+                    entry: groupEntries[index],
+                    onTap: () => onGroupTap(groupEntries[index]),
+                  ),
           );
         },
       ),
@@ -371,9 +482,13 @@ class _GlobalLeaderboardView extends StatelessWidget {
 }
 
 class _FriendsLeaderboardView extends StatelessWidget {
-  const _FriendsLeaderboardView({required this.entries});
+  const _FriendsLeaderboardView({
+    required this.entries,
+    required this.onUserTap,
+  });
 
   final List<LeaderboardEntry> entries;
+  final ValueChanged<LeaderboardEntry> onUserTap;
 
   @override
   Widget build(BuildContext context) {
@@ -390,7 +505,10 @@ class _FriendsLeaderboardView extends StatelessWidget {
       itemBuilder: (context, index) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 4),
-          child: FriendsLeaderboardCard(entry: entries[index]),
+          child: FriendsLeaderboardCard(
+            entry: entries[index],
+            onTap: () => onUserTap(entries[index]),
+          ),
         );
       },
     );
@@ -665,7 +783,9 @@ class _RunnerSeed {
 
 class _RunnerAggregate {
   const _RunnerAggregate({
+    required this.id,
     required this.name,
+    required this.username,
     required this.avatarUrl,
     required this.distanceKm,
     required this.time,
@@ -674,7 +794,9 @@ class _RunnerAggregate {
     required this.isCurrentUser,
   });
 
+  final String id;
   final String name;
+  final String username;
   final String avatarUrl;
   final double distanceKm;
   final String time;
