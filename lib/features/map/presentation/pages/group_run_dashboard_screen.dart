@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
+import 'package:clain_the_run/features/home/presentation/widgets/activitycard.dart';
+import 'package:clain_the_run/features/home/presentation/widgets/run_route_map_preview.dart';
 import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/message/data/services/message_socket_service.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
@@ -779,31 +782,55 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
           content: Text('Move a bit more to save this group run.'),
         ),
       );
+      await _resetRunState();
       _isFinishingRun = false;
       return;
     }
 
-    try {
-      await _runApiService.createRun(
-        title: '${widget.group.name} Group Run',
-        routePoints: List<LatLng>.from(_routePoints),
-        territoryPoints: const <LatLng>[],
-        distanceMeters: _distanceMeters,
-        durationSeconds: _elapsed.inSeconds,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Group run saved successfully.')),
-      );
-      await _resetRunState();
-      _isFinishingRun = false;
-    } catch (error) {
-      if (!mounted) return;
-      _isFinishingRun = false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_runApiService.extractErrorMessage(error))),
-      );
+    final activity = ActivityModel(
+      title: '${widget.group.name} Group Run',
+      subtitle: _formatRunSubtitle(DateTime.now()),
+      distanceKm: _distanceMeters / 1000,
+      totalTime: _formatDuration(_elapsed),
+      avgPace: _formatPace(_distanceMeters, _elapsed.inSeconds),
+      calories: _estimateCalories(_distanceMeters),
+      routePoints: List<LatLng>.from(_routePoints),
+    );
+
+    final decision = await _showGroupRunSummaryDecisionSheet(
+      context,
+      activity: activity,
+    );
+    if (!mounted) return;
+
+    if (decision?.shouldSave == true) {
+      try {
+        await _runApiService.createRun(
+          title: decision!.title,
+          routePoints: List<LatLng>.from(_routePoints),
+          territoryPoints: const <LatLng>[],
+          distanceMeters: _distanceMeters,
+          durationSeconds: _elapsed.inSeconds,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group run saved successfully.')),
+        );
+      } catch (error) {
+        if (!mounted) return;
+        _isFinishingRun = false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_runApiService.extractErrorMessage(error))),
+        );
+        return;
+      }
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Group run not saved.')));
     }
+    await _resetRunState();
+    _isFinishingRun = false;
   }
 
   @override
@@ -2050,4 +2077,343 @@ String _formatDuration(Duration duration) {
   final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
   final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
   return '$hours:$minutes:$seconds';
+}
+
+String _formatRunSubtitle(DateTime value) {
+  final now = DateTime.now();
+  final sameDay =
+      now.year == value.year &&
+      now.month == value.month &&
+      now.day == value.day;
+  final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+  final minute = value.minute.toString().padLeft(2, '0');
+  final suffix = value.hour >= 12 ? 'PM' : 'AM';
+  if (sameDay) {
+    return 'Today, $hour:$minute $suffix';
+  }
+  const months = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${months[value.month - 1]} ${value.day}, $hour:$minute $suffix';
+}
+
+String _formatPace(double distanceMeters, int durationSeconds) {
+  if (distanceMeters <= 0 || durationSeconds <= 0) return "0'00\"";
+  final secondsPerKm = durationSeconds / (distanceMeters / 1000);
+  final minutes = (secondsPerKm ~/ 60).toInt();
+  final seconds = (secondsPerKm.round() % 60).toString().padLeft(2, '0');
+  return "$minutes'$seconds\"";
+}
+
+int _estimateCalories(double distanceMeters) {
+  final distanceKm = distanceMeters / 1000;
+  return (distanceKm * 68).round();
+}
+
+Future<_GroupRunSavePayload?> _showGroupRunSummaryDecisionSheet(
+  BuildContext context, {
+  required ActivityModel activity,
+}) {
+  return showGeneralDialog<_GroupRunSavePayload>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Group run details',
+    barrierColor: Colors.transparent,
+    transitionDuration: const Duration(milliseconds: 280),
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return const SizedBox.shrink();
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+
+      return BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: 12 * curved.value,
+          sigmaY: 12 * curved.value,
+        ),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.25 * curved.value),
+          alignment: Alignment.center,
+          child: FadeTransition(
+            opacity: curved,
+            child: _GroupRunSaveDecisionCard(activity: activity),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _GroupRunSaveDecisionCard extends StatefulWidget {
+  const _GroupRunSaveDecisionCard({required this.activity});
+
+  final ActivityModel activity;
+
+  @override
+  State<_GroupRunSaveDecisionCard> createState() =>
+      _GroupRunSaveDecisionCardState();
+}
+
+class _GroupRunSaveDecisionCardState extends State<_GroupRunSaveDecisionCard> {
+  late final TextEditingController _nameController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.activity.title);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640, maxHeight: 620),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Center(
+                  child: Text(
+                    'Run Details',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF72B63E),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: _nameController,
+                  onChanged: (_) => setState(() {}),
+                  textInputAction: TextInputAction.done,
+                  maxLength: 80,
+                  decoration: InputDecoration(
+                    labelText: 'Run name',
+                    hintText: 'Morning Run',
+                    counterText: '',
+                    filled: true,
+                    fillColor: const Color(0xFFF5F6F2),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFFD8D8D5)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFFD8D8D5)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _nameController.text.trim().isEmpty
+                            ? widget.activity.title
+                            : _nameController.text.trim(),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF111111),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      widget.activity.subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF9A9A9A),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    height: 160,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFD8D8D5)),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: RunRouteMapPreview(
+                      routePoints: widget.activity.routePoints,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    _GroupRunSummaryStat(
+                      icon: Icons.show_chart_rounded,
+                      iconColor: const Color(0xFF6AB339),
+                      value: widget.activity.distanceKm.toStringAsFixed(2),
+                      label: 'Total Km',
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: const Color(0xFFD8D8D5),
+                    ),
+                    _GroupRunSummaryStat(
+                      icon: Icons.timer_outlined,
+                      iconColor: const Color(0xFF3D6FE0),
+                      value: widget.activity.totalTime,
+                      label: 'Total Time',
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: const Color(0xFFD8D8D5),
+                    ),
+                    _GroupRunSummaryStat(
+                      icon: Icons.speed_rounded,
+                      iconColor: const Color(0xFFB6A72E),
+                      value: widget.activity.avgPace,
+                      label: 'Avg Pace',
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: const Color(0xFFD8D8D5),
+                    ),
+                    _GroupRunSummaryStat(
+                      icon: Icons.local_fire_department_rounded,
+                      iconColor: const Color(0xFFE08A2E),
+                      value: '${widget.activity.calories}',
+                      label: 'Calories',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pop(const _GroupRunSavePayload.discard()),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF4A4A4A),
+                          side: const BorderSide(color: Color(0xFFD5D5D2)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                        ),
+                        child: const Text("Don't Save"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(
+                            _GroupRunSavePayload.save(
+                              _nameController.text.trim().isEmpty
+                                  ? widget.activity.title
+                                  : _nameController.text.trim(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF72B63E),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                        ),
+                        child: const Text('Save Run'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupRunSavePayload {
+  const _GroupRunSavePayload({required this.shouldSave, this.title});
+
+  const _GroupRunSavePayload.save(String title)
+    : this(shouldSave: true, title: title);
+
+  const _GroupRunSavePayload.discard() : this(shouldSave: false);
+
+  final bool shouldSave;
+  final String? title;
+}
+
+class _GroupRunSummaryStat extends StatelessWidget {
+  const _GroupRunSummaryStat({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: 22, color: iconColor),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF111111),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF6E6E6E)),
+          ),
+        ],
+      ),
+    );
+  }
 }
