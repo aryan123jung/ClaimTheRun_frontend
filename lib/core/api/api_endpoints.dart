@@ -152,8 +152,9 @@ class ApiEndpoints {
         return;
       }
 
-      yield '10.0.2.2';
       yield computerIpAddress;
+      yield '10.0.2.2';
+      yield 'localhost';
       return;
     }
 

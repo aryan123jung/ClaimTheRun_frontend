@@ -1,6 +1,7 @@
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/message/domain/entities/message_entities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -112,31 +113,41 @@ class MessageSocketService {
     final socketBaseUrls = ApiEndpoints.candidateUploadBaseUrls;
     final socketBaseUrl =
         socketBaseUrls[_socketUrlIndex.clamp(0, socketBaseUrls.length - 1)];
+    debugPrint(
+      '[MessageSocket] connecting to $socketBaseUrl candidates=$socketBaseUrls',
+    );
     final socket = io.io(
       socketBaseUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling'])
           .disableAutoConnect()
           .setAuth({'token': token})
+          .setExtraHeaders({'Authorization': 'Bearer $token'})
+          .enableReconnection()
           .build(),
     );
+    _socket = socket;
 
     socket.onConnect((_) {
+      debugPrint('[MessageSocket] connected to $socketBaseUrl');
       _isConnecting = false;
       _flushPendingConversationJoins();
     });
 
-    socket.onConnectError((_) {
+    socket.onConnectError((error) {
+      debugPrint('[MessageSocket] connect error on $socketBaseUrl: $error');
       _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
     });
 
-    socket.onError((_) {
+    socket.onError((error) {
+      debugPrint('[MessageSocket] socket error on $socketBaseUrl: $error');
       _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
     });
 
-    socket.onDisconnect((_) {
+    socket.onDisconnect((reason) {
+      debugPrint('[MessageSocket] disconnected from $socketBaseUrl: $reason');
       _socket?.dispose();
       _socket = null;
       _isConnecting = false;
@@ -220,6 +231,10 @@ class MessageSocketService {
           .whereType<GroupRunParticipantSocketPayload>()
           .toList();
       _onGroupRunParticipants?.call(communityId, participants);
+      final session = _mapGroupRunSession(data['session']);
+      if (session != null) {
+        _onGroupRunStarted?.call(session);
+      }
     });
 
     socket.on('group:run:user-joined', (data) {
@@ -261,7 +276,6 @@ class MessageSocketService {
     });
 
     socket.connect();
-    _socket = socket;
   }
 
   void joinConversation(String conversationId) {
@@ -440,8 +454,8 @@ class MessageSocketService {
     };
     _pendingGroupRunJoins[trimmed] = payload;
     final socket = _socket;
-    if (socket?.connected == true) {
-      socket!.emit('group:run:join', payload);
+    if (socket != null) {
+      socket.emit('group:run:join', payload);
       return;
     }
 
@@ -453,12 +467,18 @@ class MessageSocketService {
     required String userId,
     required LatLng location,
   }) {
-    _socket?.emit('group:run:update', {
+    final payload = {
       'communityId': communityId.trim(),
       'userId': userId.trim(),
       'latitude': location.latitude,
       'longitude': location.longitude,
-    });
+    };
+    final socket = _socket;
+    if (socket != null) {
+      socket.emit('group:run:update', payload);
+      return;
+    }
+    connect();
   }
 
   void leaveGroupRun(String communityId) {
@@ -470,13 +490,23 @@ class MessageSocketService {
   void startGroupRun(String communityId) {
     final trimmed = communityId.trim();
     if (trimmed.isEmpty) return;
-    _socket?.emit('group:run:start', trimmed);
+    final socket = _socket;
+    if (socket != null) {
+      socket.emit('group:run:start', trimmed);
+      return;
+    }
+    connect();
   }
 
   void stopGroupRun(String communityId) {
     final trimmed = communityId.trim();
     if (trimmed.isEmpty) return;
-    _socket?.emit('group:run:stop', trimmed);
+    final socket = _socket;
+    if (socket != null) {
+      socket.emit('group:run:stop', trimmed);
+      return;
+    }
+    connect();
   }
 
   Future<String?> _readToken() async {

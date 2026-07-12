@@ -484,6 +484,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     final selfId = self?.id ?? '';
     if (selfId.isEmpty) return;
 
+    debugPrint(
+      '[GroupRun ${widget.group.id}] join presence user=$selfId point=${point.latitude},${point.longitude}',
+    );
     await _messageSocketService.connect();
     _messageSocketService.joinGroupRun(
       communityId: widget.group.id,
@@ -504,6 +507,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     final selfId = authState.authEntity?.id ?? '';
     if (selfId.isEmpty) return;
 
+    debugPrint(
+      '[GroupRun ${widget.group.id}] update presence user=$selfId point=${point.latitude},${point.longitude}',
+    );
     _messageSocketService.updateGroupRunLocation(
       communityId: widget.group.id,
       userId: selfId,
@@ -520,6 +526,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     List<GroupRunParticipantSocketPayload> participants,
   ) {
     if (communityId != widget.group.id || !mounted) return;
+    debugPrint(
+      '[GroupRun ${widget.group.id}] participants=${participants.map((p) => p.userId).join(",")}',
+    );
     setState(() {
       _activeParticipants.removeWhere(
         (userId, _) => participants.every((item) => item.userId != userId),
@@ -537,6 +546,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     GroupRunParticipantSocketPayload participant,
   ) {
     if (communityId != widget.group.id || !mounted) return;
+    debugPrint(
+      '[GroupRun ${widget.group.id}] user joined=${participant.userId}',
+    );
     setState(() {
       _activeParticipants[participant.userId] = participant;
     });
@@ -549,6 +561,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     GroupRunParticipantSocketPayload participant,
   ) {
     if (communityId != widget.group.id || !mounted) return;
+    debugPrint(
+      '[GroupRun ${widget.group.id}] user updated=${participant.userId}',
+    );
     setState(() {
       _activeParticipants[participant.userId] = participant;
     });
@@ -558,6 +573,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
 
   void _handleRunParticipantLeft(String communityId, String userId) {
     if (communityId != widget.group.id || !mounted) return;
+    debugPrint('[GroupRun ${widget.group.id}] user left=$userId');
     setState(() {
       _activeParticipants.remove(userId);
     });
@@ -569,6 +585,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     if (session.communityId != widget.group.id || !mounted) return;
     final authState = ref.read(authViewModelProvider);
     final selfId = authState.authEntity?.id ?? '';
+    debugPrint(
+      '[GroupRun ${widget.group.id}] started by=${session.startedByUserId} self=$selfId',
+    );
     setState(() {
       _activeSession = session;
       if (!_isActive) {
@@ -717,6 +736,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       _elapsed = Duration.zero;
       _startedAt = _activeSession?.startedAt ?? DateTime.now();
     });
+    if (_currentUserLocation != null) {
+      await _joinRunPresence(_currentUserLocation!);
+    }
     if (_currentUserLocation != null) {
       await _recordPoint(_currentUserLocation!);
     }
