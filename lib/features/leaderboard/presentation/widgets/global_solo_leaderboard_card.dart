@@ -36,14 +36,19 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
     final rankColor = _rankColors[entry.rank]!;
     final tint = _rankTints[entry.rank]!;
     final medal = _medalEmoji[entry.rank]!;
+    final highlight = entry.isCurrentUser;
 
     return Container(
       height: 84,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: isDark ? const Color(0xFF111C26) : Colors.white,
+        color: highlight
+            ? brandGreen.withValues(alpha: isDark ? 0.18 : 0.08)
+            : (isDark ? const Color(0xFF111C26) : Colors.white),
         border: Border.all(
-          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+          color: highlight
+              ? brandGreen.withValues(alpha: 0.35)
+              : (isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA)),
         ),
         boxShadow: [
           BoxShadow(
@@ -73,9 +78,11 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
               const SizedBox(width: 8),
               CircleAvatar(
                 radius: 22,
-                backgroundColor: rankColor.withValues(alpha: 0.3),
+                backgroundColor: highlight
+                    ? brandGreen
+                    : rankColor.withValues(alpha: 0.3),
                 child: CircleAvatar(
-                  radius: 20,
+                  radius: highlight ? 19 : 20,
                   backgroundImage: NetworkImage(entry.avatarUrl),
                 ),
               ),
@@ -89,7 +96,9 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
                       entry.name,
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: highlight
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                         color: isDark ? Colors.white : const Color(0xFF111111),
                       ),
                     ),
@@ -108,10 +117,10 @@ class GlobalSoloLeaderboardCard extends StatelessWidget {
               ),
               Text(
                 '${entry.distanceKm.toStringAsFixed(0)} km',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: activeTextGreen,
+                  color: highlight ? activeTextGreen : activeTextGreen,
                 ),
               ),
             ],

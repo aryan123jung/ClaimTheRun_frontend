@@ -6,6 +6,7 @@ class FriendsLeaderboardCard extends StatelessWidget {
 
   final LeaderboardEntry entry;
 
+  static const brandGreen = Color(0xFF72B63E);
   static const activeTextGreen = Color(0xFF3B6D11);
 
   static const _rankColors = {
@@ -35,14 +36,19 @@ class FriendsLeaderboardCard extends StatelessWidget {
     final rankColor = _rankColors[entry.rank]!;
     final tint = _rankTints[entry.rank]!;
     final medal = _medalEmoji[entry.rank]!;
+    final highlight = entry.isCurrentUser;
 
     return Container(
       height: 84,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: isDark ? const Color(0xFF111C26) : Colors.white,
+        color: highlight
+            ? brandGreen.withValues(alpha: isDark ? 0.18 : 0.08)
+            : (isDark ? const Color(0xFF111C26) : Colors.white),
         border: Border.all(
-          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+          color: highlight
+              ? brandGreen.withValues(alpha: 0.35)
+              : (isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA)),
         ),
         boxShadow: [
           BoxShadow(
@@ -72,9 +78,11 @@ class FriendsLeaderboardCard extends StatelessWidget {
               const SizedBox(width: 8),
               CircleAvatar(
                 radius: 22,
-                backgroundColor: rankColor.withValues(alpha: 0.3),
+                backgroundColor: highlight
+                    ? brandGreen
+                    : rankColor.withValues(alpha: 0.3),
                 child: CircleAvatar(
-                  radius: 20,
+                  radius: highlight ? 19 : 20,
                   backgroundImage: NetworkImage(entry.avatarUrl),
                 ),
               ),
@@ -90,7 +98,9 @@ class FriendsLeaderboardCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: highlight
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                         color: isDark ? Colors.white : Color(0xFF111111),
                       ),
                     ),
@@ -124,14 +134,20 @@ class FriendsLeaderboardCard extends StatelessWidget {
   }
 
   Widget _buildStandardRow(bool isDark) {
+    final highlight = entry.isCurrentUser;
+
     return Container(
       height: 84,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111C26) : Colors.white,
+        color: highlight
+            ? brandGreen.withValues(alpha: isDark ? 0.18 : 0.08)
+            : (isDark ? const Color(0xFF111C26) : Colors.white),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA),
+          color: highlight
+              ? brandGreen.withValues(alpha: 0.35)
+              : (isDark ? const Color(0xFF233241) : const Color(0xFFEDEDEA)),
         ),
         boxShadow: [
           BoxShadow(
@@ -148,13 +164,24 @@ class FriendsLeaderboardCard extends StatelessWidget {
             child: Text(
               '${entry.rank}',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF9A9A9A)),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: highlight ? FontWeight.w700 : FontWeight.w400,
+                color: highlight ? activeTextGreen : const Color(0xFF9A9A9A),
+              ),
             ),
           ),
           const SizedBox(width: 8),
           CircleAvatar(
             radius: 20,
-            backgroundImage: NetworkImage(entry.avatarUrl),
+            backgroundColor: highlight ? brandGreen : Colors.transparent,
+            child: Padding(
+              padding: EdgeInsets.all(highlight ? 2 : 0),
+              child: CircleAvatar(
+                radius: highlight ? 18 : 20,
+                backgroundImage: NetworkImage(entry.avatarUrl),
+              ),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -168,7 +195,7 @@ class FriendsLeaderboardCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
                     color: isDark ? Colors.white : Color(0xFF111111),
                   ),
                 ),
@@ -190,8 +217,12 @@ class FriendsLeaderboardCard extends StatelessWidget {
             '${entry.distanceKm.toStringAsFixed(0)} km',
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: isDark ? const Color(0xFFB3BEC8) : const Color(0xFF5F5E5A),
+              fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
+              color: highlight
+                  ? activeTextGreen
+                  : (isDark
+                        ? const Color(0xFFB3BEC8)
+                        : const Color(0xFF5F5E5A)),
             ),
           ),
         ],
