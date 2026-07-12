@@ -244,6 +244,8 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   final Map<String, GroupRunParticipantSocketPayload> _activeParticipants =
       <String, GroupRunParticipantSocketPayload>{};
   final Map<String, Circle> _memberCircles = <String, Circle>{};
+  List<_ParticipantLabelPosition> _participantLabelPositions =
+      const <_ParticipantLabelPosition>[];
   StreamSubscription<Position>? _positionSubscription;
   Timer? _elapsedTimer;
   DateTime? _startedAt;
@@ -480,6 +482,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       communityId: widget.group.id,
       userId: selfId,
       name: self?.fullname ?? 'Runner',
+      username: self?.username ?? 'runner',
       avatarUrl: self?.profileUrl,
       location: point,
     );
@@ -503,11 +506,15 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   ) {
     if (communityId != widget.group.id || !mounted) return;
     setState(() {
+      _activeParticipants.removeWhere(
+        (userId, _) => participants.every((item) => item.userId != userId),
+      );
       for (final participant in participants) {
         _activeParticipants[participant.userId] = participant;
       }
     });
     _syncRemoteParticipantMarkers();
+    _updateParticipantLabelPositions();
   }
 
   void _handleRunParticipantJoined(
@@ -519,6 +526,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       _activeParticipants[participant.userId] = participant;
     });
     _syncRemoteParticipantMarkers();
+    _updateParticipantLabelPositions();
   }
 
   void _handleRunParticipantUpdated(
@@ -530,6 +538,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       _activeParticipants[participant.userId] = participant;
     });
     _syncRemoteParticipantMarkers();
+    _updateParticipantLabelPositions();
   }
 
   void _handleRunParticipantLeft(String communityId, String userId) {
@@ -538,6 +547,45 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       _activeParticipants.remove(userId);
     });
     _syncRemoteParticipantMarkers();
+    _updateParticipantLabelPositions();
+  }
+
+  Future<void> _updateParticipantLabelPositions() async {
+    final controller = _mapController;
+    if (!_isMapStyleReady || controller == null || !mounted) return;
+
+    final authState = ref.read(authViewModelProvider);
+    final selfId = authState.authEntity?.id ?? '';
+    final others = _activeParticipants.values
+        .where((participant) => participant.userId != selfId)
+        .toList();
+
+    if (others.isEmpty) {
+      if (_participantLabelPositions.isNotEmpty) {
+        setState(() {
+          _participantLabelPositions = const <_ParticipantLabelPosition>[];
+        });
+      }
+      return;
+    }
+
+    try {
+      final points = await controller.toScreenLocationBatch(
+        others.map((participant) => participant.location),
+      );
+      if (!mounted) return;
+      setState(() {
+        _participantLabelPositions = [
+          for (var index = 0; index < others.length; index++)
+            _ParticipantLabelPosition(
+              participant: others[index],
+              point: points[index],
+            ),
+        ];
+      });
+    } catch (_) {
+      // Ignore projection failures and keep the last rendered labels.
+    }
   }
 
   Future<void> _animateToUser(
@@ -685,6 +733,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
               await _syncUserMarker();
               await _syncRouteLine();
               await _syncRemoteParticipantMarkers();
+              await _updateParticipantLabelPositions();
             },
             compassEnabled: false,
             myLocationEnabled: false,
@@ -693,7 +742,39 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
             dragEnabled: !_isRunning,
             rotateGesturesEnabled: !_isRunning,
             tiltGesturesEnabled: !_isRunning,
+            onCameraMove: (_) {
+              _updateParticipantLabelPositions();
+            },
+            onCameraIdle: () {
+              _updateParticipantLabelPositions();
+            },
             attributionButtonMargins: const Point(-1000, -1000),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    children: [
+                      for (final label in _participantLabelPositions)
+                        Positioned(
+                          left: _participantChipLeft(
+                            label.point.x.toDouble(),
+                            constraints.maxWidth,
+                          ),
+                          top: _participantChipTop(
+                            label.point.y.toDouble(),
+                            constraints.maxHeight,
+                          ),
+                          child: _ParticipantUsernameChip(
+                            username: '@${label.participant.username}',
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
           Positioned(
             top: 0,
@@ -888,6 +969,18 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => GroupRunLiveScreen(group: selected)),
     );
+  }
+
+  double _participantChipLeft(double rawLeft, double maxWidth) {
+    const chipWidth = 108.0;
+    final shifted = rawLeft - (chipWidth / 2);
+    return shifted.clamp(8.0, max(8.0, maxWidth - chipWidth - 8.0));
+  }
+
+  double _participantChipTop(double rawTop, double maxHeight) {
+    const chipHeight = 30.0;
+    final shifted = rawTop - 42;
+    return shifted.clamp(8.0, max(8.0, maxHeight - chipHeight - 8.0));
   }
 }
 
@@ -1469,7 +1562,7 @@ class _ActiveGroupMembersCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        participant.name,
+                        '@${participant.username}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1484,6 +1577,42 @@ class _ActiveGroupMembersCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ParticipantLabelPosition {
+  const _ParticipantLabelPosition({
+    required this.participant,
+    required this.point,
+  });
+
+  final GroupRunParticipantSocketPayload participant;
+  final Point<num> point;
+}
+
+class _ParticipantUsernameChip extends StatelessWidget {
+  const _ParticipantUsernameChip({required this.username});
+
+  final String username;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xEE111111),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0x334F7DFF)),
+      ),
+      child: Text(
+        username,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

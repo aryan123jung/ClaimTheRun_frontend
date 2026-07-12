@@ -28,6 +28,7 @@ class GroupRunParticipantSocketPayload {
   const GroupRunParticipantSocketPayload({
     required this.userId,
     required this.name,
+    required this.username,
     required this.location,
     this.avatarUrl,
     this.updatedAt,
@@ -35,6 +36,7 @@ class GroupRunParticipantSocketPayload {
 
   final String userId;
   final String name;
+  final String username;
   final String? avatarUrl;
   final LatLng location;
   final DateTime? updatedAt;
@@ -380,6 +382,7 @@ class MessageSocketService {
     required String communityId,
     required String userId,
     required String name,
+    required String username,
     String? avatarUrl,
     required LatLng location,
   }) {
@@ -390,6 +393,7 @@ class MessageSocketService {
       'communityId': trimmed,
       'userId': userId.trim(),
       'name': name.trim(),
+      'username': username.trim(),
       'avatarUrl': avatarUrl,
       'latitude': location.latitude,
       'longitude': location.longitude,
@@ -486,6 +490,7 @@ class MessageSocketService {
     return GroupRunParticipantSocketPayload(
       userId: raw['userId']?.toString() ?? '',
       name: raw['name']?.toString() ?? 'Runner',
+      username: raw['username']?.toString() ?? 'runner',
       avatarUrl: raw['avatarUrl']?.toString(),
       location: LatLng(latitude, longitude),
       updatedAt: DateTime.tryParse(raw['updatedAt']?.toString() ?? ''),
