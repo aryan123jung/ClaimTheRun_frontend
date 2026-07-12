@@ -484,9 +484,6 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     final selfId = self?.id ?? '';
     if (selfId.isEmpty) return;
 
-    debugPrint(
-      '[GroupRun ${widget.group.id}] join presence user=$selfId point=${point.latitude},${point.longitude}',
-    );
     await _messageSocketService.connect();
     _messageSocketService.joinGroupRun(
       communityId: widget.group.id,
@@ -507,9 +504,6 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     final selfId = authState.authEntity?.id ?? '';
     if (selfId.isEmpty) return;
 
-    debugPrint(
-      '[GroupRun ${widget.group.id}] update presence user=$selfId point=${point.latitude},${point.longitude}',
-    );
     _messageSocketService.updateGroupRunLocation(
       communityId: widget.group.id,
       userId: selfId,
@@ -526,9 +520,6 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     List<GroupRunParticipantSocketPayload> participants,
   ) {
     if (communityId != widget.group.id || !mounted) return;
-    debugPrint(
-      '[GroupRun ${widget.group.id}] participants=${participants.map((p) => p.userId).join(",")}',
-    );
     setState(() {
       _activeParticipants.removeWhere(
         (userId, _) => participants.every((item) => item.userId != userId),
@@ -546,9 +537,6 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     GroupRunParticipantSocketPayload participant,
   ) {
     if (communityId != widget.group.id || !mounted) return;
-    debugPrint(
-      '[GroupRun ${widget.group.id}] user joined=${participant.userId}',
-    );
     setState(() {
       _activeParticipants[participant.userId] = participant;
     });
@@ -561,9 +549,6 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     GroupRunParticipantSocketPayload participant,
   ) {
     if (communityId != widget.group.id || !mounted) return;
-    debugPrint(
-      '[GroupRun ${widget.group.id}] user updated=${participant.userId}',
-    );
     setState(() {
       _activeParticipants[participant.userId] = participant;
     });
@@ -573,7 +558,6 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
 
   void _handleRunParticipantLeft(String communityId, String userId) {
     if (communityId != widget.group.id || !mounted) return;
-    debugPrint('[GroupRun ${widget.group.id}] user left=$userId');
     setState(() {
       _activeParticipants.remove(userId);
     });
@@ -585,9 +569,6 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     if (session.communityId != widget.group.id || !mounted) return;
     final authState = ref.read(authViewModelProvider);
     final selfId = authState.authEntity?.id ?? '';
-    debugPrint(
-      '[GroupRun ${widget.group.id}] started by=${session.startedByUserId} self=$selfId',
-    );
     setState(() {
       _activeSession = session;
       if (!_isActive) {
@@ -746,17 +727,49 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     await _startTracking();
   }
 
+  Future<void> _resetRunState() async {
+    await _positionSubscription?.cancel();
+    _positionSubscription = null;
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+
+    final controller = _mapController;
+    if (controller != null && _routeLine != null) {
+      await controller.removeLine(_routeLine!);
+      _routeLine = null;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _distanceMeters = 0;
+      _elapsed = Duration.zero;
+      _startedAt = null;
+      _routePoints.clear();
+      if (_runState == _GroupRunState.active) {
+        _runState = _activeSession == null
+            ? _GroupRunState.ready
+            : _GroupRunState.joinable;
+      }
+    });
+
+    if (_currentUserLocation != null) {
+      await _animateToUser(
+        _currentUserLocation!,
+        isRunning: false,
+        duration: const Duration(milliseconds: 500),
+      );
+    }
+  }
+
   Future<void> _finishRun() async {
     _isFinishingRun = true;
     await _positionSubscription?.cancel();
     _positionSubscription = null;
     _elapsedTimer?.cancel();
     _messageSocketService.stopGroupRun(widget.group.id);
-    _messageSocketService.leaveGroupRun(widget.group.id);
     if (!mounted) return;
     setState(() {
       _activeSession = null;
-      _hasJoinedPresence = false;
       _runState = _GroupRunState.ready;
     });
 
@@ -782,8 +795,8 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Group run saved successfully.')),
       );
+      await _resetRunState();
       _isFinishingRun = false;
-      Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
       _isFinishingRun = false;
@@ -1050,6 +1063,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
                 distanceKm: _distanceMeters / 1000,
                 elapsed: _elapsed,
                 memberCount: widget.group.memberCount,
+                onResetPressed: _resetRunState,
                 onStartPressed: _startRun,
                 onJoinPressed: _joinStartedRun,
                 onFinishPressed: _finishRun,
@@ -1395,6 +1409,7 @@ class _GroupRunBottomCard extends StatelessWidget {
     required this.distanceKm,
     required this.elapsed,
     required this.memberCount,
+    required this.onResetPressed,
     required this.onStartPressed,
     required this.onJoinPressed,
     required this.onFinishPressed,
@@ -1405,6 +1420,7 @@ class _GroupRunBottomCard extends StatelessWidget {
   final double distanceKm;
   final Duration elapsed;
   final int memberCount;
+  final VoidCallback onResetPressed;
   final VoidCallback onStartPressed;
   final VoidCallback onJoinPressed;
   final VoidCallback onFinishPressed;
@@ -1523,45 +1539,83 @@ class _GroupRunBottomCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: isRunning
-                  ? onFinishPressed
-                  : isJoinable
-                  ? onJoinPressed
-                  : onStartPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isRunning
-                    ? const Color(0xFF151C1B)
-                    : const Color(0xFF31C861),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+          Row(
+            children: [
+              if (!isRunning) ...[
+                Expanded(
+                  child: SizedBox(
+                    height: 54,
+                    child: OutlinedButton.icon(
+                      onPressed: onResetPressed,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: isDark
+                            ? Colors.white
+                            : const Color(0xFF1A201C),
+                        side: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF2C4255)
+                              : const Color(0xFFD6E3D2),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      label: const Text(
+                        'Reset',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                flex: isRunning ? 1 : 2,
+                child: SizedBox(
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: isRunning
+                        ? onFinishPressed
+                        : isJoinable
+                        ? onJoinPressed
+                        : onStartPressed,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isRunning
+                          ? const Color(0xFF151C1B)
+                          : const Color(0xFF31C861),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    icon: Icon(
+                      isRunning
+                          ? Icons.stop_circle_outlined
+                          : isJoinable
+                          ? Icons.login_rounded
+                          : Icons.play_arrow_rounded,
+                      size: 20,
+                    ),
+                    label: Text(
+                      isRunning
+                          ? 'Finish group run'
+                          : isJoinable
+                          ? 'Join run'
+                          : 'Start group run',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              icon: Icon(
-                isRunning
-                    ? Icons.stop_circle_outlined
-                    : isJoinable
-                    ? Icons.login_rounded
-                    : Icons.play_arrow_rounded,
-                size: 20,
-              ),
-              label: Text(
-                isRunning
-                    ? 'Finish group run'
-                    : isJoinable
-                    ? 'Join run'
-                    : 'Start group run',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
+            ],
           ),
         ],
       ),

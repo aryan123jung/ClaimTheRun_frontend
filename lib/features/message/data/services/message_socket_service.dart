@@ -1,7 +1,6 @@
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/message/domain/entities/message_entities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -113,9 +112,6 @@ class MessageSocketService {
     final socketBaseUrls = ApiEndpoints.candidateUploadBaseUrls;
     final socketBaseUrl =
         socketBaseUrls[_socketUrlIndex.clamp(0, socketBaseUrls.length - 1)];
-    debugPrint(
-      '[MessageSocket] connecting to $socketBaseUrl candidates=$socketBaseUrls',
-    );
     final socket = io.io(
       socketBaseUrl,
       io.OptionBuilder()
@@ -129,25 +125,21 @@ class MessageSocketService {
     _socket = socket;
 
     socket.onConnect((_) {
-      debugPrint('[MessageSocket] connected to $socketBaseUrl');
       _isConnecting = false;
       _flushPendingConversationJoins();
     });
 
-    socket.onConnectError((error) {
-      debugPrint('[MessageSocket] connect error on $socketBaseUrl: $error');
+    socket.onConnectError((_) {
       _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
     });
 
-    socket.onError((error) {
-      debugPrint('[MessageSocket] socket error on $socketBaseUrl: $error');
+    socket.onError((_) {
       _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
     });
 
-    socket.onDisconnect((reason) {
-      debugPrint('[MessageSocket] disconnected from $socketBaseUrl: $reason');
+    socket.onDisconnect((_) {
       _socket?.dispose();
       _socket = null;
       _isConnecting = false;
