@@ -42,6 +42,18 @@ class GroupRunParticipantSocketPayload {
   final DateTime? updatedAt;
 }
 
+class GroupRunSessionSocketPayload {
+  const GroupRunSessionSocketPayload({
+    required this.communityId,
+    required this.startedByUserId,
+    required this.startedAt,
+  });
+
+  final String communityId;
+  final String startedByUserId;
+  final DateTime startedAt;
+}
+
 class MessageSocketService {
   static const _tokenKey = 'auth_token';
 
@@ -74,6 +86,8 @@ class MessageSocketService {
   void Function(String communityId, GroupRunParticipantSocketPayload)?
   _onGroupRunUserUpdated;
   void Function(String communityId, String userId)? _onGroupRunUserLeft;
+  void Function(GroupRunSessionSocketPayload session)? _onGroupRunStarted;
+  void Function(String communityId, String stoppedByUserId)? _onGroupRunStopped;
   bool _isConnecting = false;
   int _socketUrlIndex = 0;
 
@@ -232,6 +246,20 @@ class MessageSocketService {
       );
     });
 
+    socket.on('group:run:started', (data) {
+      final session = _mapGroupRunSession(data);
+      if (session == null) return;
+      _onGroupRunStarted?.call(session);
+    });
+
+    socket.on('group:run:stopped', (data) {
+      if (data is! Map) return;
+      _onGroupRunStopped?.call(
+        data['communityId']?.toString() ?? '',
+        data['stoppedByUserId']?.toString() ?? '',
+      );
+    });
+
     socket.connect();
     _socket = socket;
   }
@@ -321,6 +349,18 @@ class MessageSocketService {
     void Function(String communityId, String userId)? listener,
   ) {
     _onGroupRunUserLeft = listener;
+  }
+
+  void setOnGroupRunStarted(
+    void Function(GroupRunSessionSocketPayload session)? listener,
+  ) {
+    _onGroupRunStarted = listener;
+  }
+
+  void setOnGroupRunStopped(
+    void Function(String communityId, String stoppedByUserId)? listener,
+  ) {
+    _onGroupRunStopped = listener;
   }
 
   void joinGroup(String communityId) {
@@ -427,6 +467,18 @@ class MessageSocketService {
     _socket?.emit('group:run:leave', trimmed);
   }
 
+  void startGroupRun(String communityId) {
+    final trimmed = communityId.trim();
+    if (trimmed.isEmpty) return;
+    _socket?.emit('group:run:start', trimmed);
+  }
+
+  void stopGroupRun(String communityId) {
+    final trimmed = communityId.trim();
+    if (trimmed.isEmpty) return;
+    _socket?.emit('group:run:stop', trimmed);
+  }
+
   Future<String?> _readToken() async {
     var token = await _storage.read(key: _tokenKey);
     token ??= (await SharedPreferences.getInstance()).getString(_tokenKey);
@@ -494,6 +546,17 @@ class MessageSocketService {
       avatarUrl: raw['avatarUrl']?.toString(),
       location: LatLng(latitude, longitude),
       updatedAt: DateTime.tryParse(raw['updatedAt']?.toString() ?? ''),
+    );
+  }
+
+  GroupRunSessionSocketPayload? _mapGroupRunSession(dynamic raw) {
+    if (raw is! Map) return null;
+    final startedAt = DateTime.tryParse(raw['startedAt']?.toString() ?? '');
+    if (startedAt == null) return null;
+    return GroupRunSessionSocketPayload(
+      communityId: raw['communityId']?.toString() ?? '',
+      startedByUserId: raw['startedByUserId']?.toString() ?? '',
+      startedAt: startedAt,
     );
   }
 }

@@ -16,6 +16,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+enum _GroupRunState { ready, joinable, active }
+
 class GroupRunDashboardScreen extends ConsumerStatefulWidget {
   const GroupRunDashboardScreen({super.key});
 
@@ -236,7 +238,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   MapLibreMapController? _mapController;
   bool _isMapStyleReady = false;
   bool _hasLocationPermission = false;
-  bool _isRunning = false;
+  _GroupRunState _runState = _GroupRunState.ready;
   LatLng? _currentUserLocation;
   Circle? _userLocationCircle;
   Circle? _userLocationGlowCircle;
@@ -252,6 +254,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   Duration _elapsed = Duration.zero;
   double _distanceMeters = 0;
   final List<LatLng> _routePoints = <LatLng>[];
+  GroupRunSessionSocketPayload? _activeSession;
+  bool _isFinishingRun = false;
+  bool _hasJoinedPresence = false;
 
   @override
   void initState() {
@@ -266,6 +271,8 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       _handleRunParticipantUpdated,
     );
     _messageSocketService.setOnGroupRunUserLeft(_handleRunParticipantLeft);
+    _messageSocketService.setOnGroupRunStarted(_handleRunStarted);
+    _messageSocketService.setOnGroupRunStopped(_handleRunStopped);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureLocationPermission();
     });
@@ -311,7 +318,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       await _joinRunPresence(point);
       await _animateToUser(
         point,
-        isRunning: _isRunning,
+        isRunning: _isActive,
         duration: const Duration(milliseconds: 650),
       );
       return true;
@@ -380,10 +387,10 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
             });
             await _syncUserMarker();
             await _updateRunPresence(point);
-            if (_isRunning) {
+            if (_isActive) {
               await _recordPoint(point);
             }
-            await _animateToUser(point, isRunning: _isRunning);
+            await _animateToUser(point, isRunning: _isActive);
           },
         );
   }
@@ -486,6 +493,10 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       avatarUrl: self?.profileUrl,
       location: point,
     );
+    if (!mounted) return;
+    setState(() {
+      _hasJoinedPresence = true;
+    });
   }
 
   Future<void> _updateRunPresence(LatLng point) async {
@@ -499,6 +510,10 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       location: point,
     );
   }
+
+  bool get _isActive => _runState == _GroupRunState.active;
+
+  bool get _isJoinable => _runState == _GroupRunState.joinable;
 
   void _handleRunParticipants(
     String communityId,
@@ -549,6 +564,37 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     _syncRemoteParticipantMarkers();
     _updateParticipantLabelPositions();
   }
+
+  void _handleRunStarted(GroupRunSessionSocketPayload session) {
+    if (session.communityId != widget.group.id || !mounted) return;
+    final authState = ref.read(authViewModelProvider);
+    final selfId = authState.authEntity?.id ?? '';
+    setState(() {
+      _activeSession = session;
+      if (!_isActive) {
+        _runState = session.startedByUserId == selfId
+            ? _GroupRunState.active
+            : _GroupRunState.joinable;
+      }
+    });
+  }
+
+  void _handleRunStopped(String communityId, String stoppedByUserId) {
+    if (communityId != widget.group.id || !mounted) return;
+    if (_isFinishingRun) return;
+    _elapsedTimer?.cancel();
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+    setState(() {
+      _activeSession = null;
+      _hasJoinedPresence = false;
+      _runState = _GroupRunState.ready;
+      _elapsed = Duration.zero;
+    });
+  }
+
+  int get _activeMemberCount =>
+      _activeParticipants.length + (_hasJoinedPresence ? 1 : 0);
 
   Future<void> _updateParticipantLabelPositions() async {
     final controller = _mapController;
@@ -611,7 +657,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
 
   void _startElapsedTimer() {
     _elapsedTimer?.cancel();
-    _startedAt = DateTime.now();
+    _startedAt ??= DateTime.now();
     _elapsed = Duration.zero;
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final startedAt = _startedAt;
@@ -639,8 +685,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     _startedAt = null;
     if (!mounted) return;
     setState(() {
-      _isRunning = true;
+      _runState = _GroupRunState.active;
     });
+    _messageSocketService.startGroupRun(widget.group.id);
     if (_currentUserLocation != null) {
       await _recordPoint(_currentUserLocation!);
     }
@@ -651,14 +698,44 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     }
   }
 
+  Future<void> _joinStartedRun() async {
+    if (_isActive) return;
+
+    if (!_hasLocationPermission) {
+      await _ensureLocationPermission();
+      if (!_hasLocationPermission) return;
+    }
+
+    if (_currentUserLocation == null) {
+      final loaded = await _loadCurrentLocation();
+      if (!loaded) return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _runState = _GroupRunState.active;
+      _elapsed = Duration.zero;
+      _startedAt = _activeSession?.startedAt ?? DateTime.now();
+    });
+    if (_currentUserLocation != null) {
+      await _recordPoint(_currentUserLocation!);
+    }
+    _startElapsedTimer();
+    await _startTracking();
+  }
+
   Future<void> _finishRun() async {
+    _isFinishingRun = true;
     await _positionSubscription?.cancel();
     _positionSubscription = null;
     _elapsedTimer?.cancel();
+    _messageSocketService.stopGroupRun(widget.group.id);
     _messageSocketService.leaveGroupRun(widget.group.id);
     if (!mounted) return;
     setState(() {
-      _isRunning = false;
+      _activeSession = null;
+      _hasJoinedPresence = false;
+      _runState = _GroupRunState.ready;
     });
 
     if (_routePoints.length < 2) {
@@ -667,6 +744,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
           content: Text('Move a bit more to save this group run.'),
         ),
       );
+      _isFinishingRun = false;
       return;
     }
 
@@ -682,9 +760,11 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Group run saved successfully.')),
       );
+      _isFinishingRun = false;
       Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
+      _isFinishingRun = false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_runApiService.extractErrorMessage(error))),
       );
@@ -697,6 +777,8 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     _messageSocketService.setOnGroupRunUserJoined(null);
     _messageSocketService.setOnGroupRunUserUpdated(null);
     _messageSocketService.setOnGroupRunUserLeft(null);
+    _messageSocketService.setOnGroupRunStarted(null);
+    _messageSocketService.setOnGroupRunStopped(null);
     _messageSocketService.leaveGroupRun(widget.group.id);
     _positionSubscription?.cancel();
     _elapsedTimer?.cancel();
@@ -737,11 +819,11 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
             },
             compassEnabled: false,
             myLocationEnabled: false,
-            scrollGesturesEnabled: !_isRunning,
-            zoomGesturesEnabled: !_isRunning,
-            dragEnabled: !_isRunning,
-            rotateGesturesEnabled: !_isRunning,
-            tiltGesturesEnabled: !_isRunning,
+            scrollGesturesEnabled: !_isActive,
+            zoomGesturesEnabled: !_isActive,
+            dragEnabled: !_isActive,
+            rotateGesturesEnabled: !_isActive,
+            tiltGesturesEnabled: !_isActive,
             onCameraMove: (_) {
               _updateParticipantLabelPositions();
             },
@@ -851,8 +933,10 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _isRunning
+                          _isActive
                               ? 'Group run in progress'
+                              : _isJoinable
+                              ? 'A member has started this run. Join when ready.'
                               : 'Live dashboard for your shared run',
                           style: TextStyle(
                             fontSize: 12,
@@ -913,7 +997,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
               bottom: false,
               child: _SelectedGroupBar(
                 group: widget.group,
-                activeCount: _activeParticipants.length,
+                activeCount: _activeMemberCount,
                 onChangeGroup: availableGroups.isEmpty
                     ? null
                     : () => _openGroupSelector(availableGroups),
@@ -939,11 +1023,13 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
             child: SafeArea(
               top: false,
               child: _GroupRunBottomCard(
-                isRunning: _isRunning,
+                isRunning: _isActive,
+                isJoinable: _isJoinable,
                 distanceKm: _distanceMeters / 1000,
                 elapsed: _elapsed,
                 memberCount: widget.group.memberCount,
                 onStartPressed: _startRun,
+                onJoinPressed: _joinStartedRun,
                 onFinishPressed: _finishRun,
               ),
             ),
@@ -1283,18 +1369,22 @@ class _GroupRunSelectionCard extends StatelessWidget {
 class _GroupRunBottomCard extends StatelessWidget {
   const _GroupRunBottomCard({
     required this.isRunning,
+    required this.isJoinable,
     required this.distanceKm,
     required this.elapsed,
     required this.memberCount,
     required this.onStartPressed,
+    required this.onJoinPressed,
     required this.onFinishPressed,
   });
 
   final bool isRunning;
+  final bool isJoinable;
   final double distanceKm;
   final Duration elapsed;
   final int memberCount;
   final VoidCallback onStartPressed;
+  final VoidCallback onJoinPressed;
   final VoidCallback onFinishPressed;
 
   @override
@@ -1342,7 +1432,11 @@ class _GroupRunBottomCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isRunning ? 'Group Run Active' : 'Group Run Ready',
+                      isRunning
+                          ? 'Group Run Active'
+                          : isJoinable
+                          ? 'Group Run Joinable'
+                          : 'Group Run Ready',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -1351,7 +1445,9 @@ class _GroupRunBottomCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$memberCount members in this group',
+                      isJoinable
+                          ? 'A teammate already started this session'
+                          : '$memberCount members in this group',
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark
@@ -1409,7 +1505,11 @@ class _GroupRunBottomCard extends StatelessWidget {
             width: double.infinity,
             height: 54,
             child: ElevatedButton.icon(
-              onPressed: isRunning ? onFinishPressed : onStartPressed,
+              onPressed: isRunning
+                  ? onFinishPressed
+                  : isJoinable
+                  ? onJoinPressed
+                  : onStartPressed,
               style: ElevatedButton.styleFrom(
                 backgroundColor: isRunning
                     ? const Color(0xFF151C1B)
@@ -1423,11 +1523,17 @@ class _GroupRunBottomCard extends StatelessWidget {
               icon: Icon(
                 isRunning
                     ? Icons.stop_circle_outlined
+                    : isJoinable
+                    ? Icons.login_rounded
                     : Icons.play_arrow_rounded,
                 size: 20,
               ),
               label: Text(
-                isRunning ? 'Finish group run' : 'Start group run',
+                isRunning
+                    ? 'Finish group run'
+                    : isJoinable
+                    ? 'Join run'
+                    : 'Start group run',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
