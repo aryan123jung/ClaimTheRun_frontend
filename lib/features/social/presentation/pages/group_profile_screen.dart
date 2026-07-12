@@ -1,4 +1,5 @@
 import 'package:clain_the_run/core/api/api_endpoints.dart';
+import 'package:clain_the_run/features/map/presentation/pages/group_run_dashboard_screen.dart';
 import 'package:clain_the_run/features/message/presentation/pages/group_message_screen.dart';
 import 'package:clain_the_run/features/social/domain/entities/group_entity.dart';
 import 'package:clain_the_run/features/social/domain/entities/post_entity.dart';
@@ -59,6 +60,23 @@ class _GroupProfileScreenState extends ConsumerState<GroupProfileScreen> {
                   ),
                   const Spacer(),
                   if (group.isJoined) ...[
+                    _HeaderPillButton(
+                      icon: Icons.directions_run_rounded,
+                      label: 'Join Run',
+                      outlined: true,
+                      compact: true,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => GroupRunDashboardScreen(
+                              initialGroupId: group.id,
+                              autoOpenSelectedGroup: true,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 12),
                     _HeaderPillButton(
                       icon: Icons.add_rounded,
                       label: 'Add Post',

@@ -22,7 +22,14 @@ import 'package:permission_handler/permission_handler.dart';
 enum _GroupRunState { ready, joinable, active }
 
 class GroupRunDashboardScreen extends ConsumerStatefulWidget {
-  const GroupRunDashboardScreen({super.key});
+  const GroupRunDashboardScreen({
+    super.key,
+    this.initialGroupId,
+    this.autoOpenSelectedGroup = false,
+  });
+
+  final String? initialGroupId;
+  final bool autoOpenSelectedGroup;
 
   @override
   ConsumerState<GroupRunDashboardScreen> createState() =>
@@ -32,6 +39,7 @@ class GroupRunDashboardScreen extends ConsumerStatefulWidget {
 class _GroupRunDashboardScreenState
     extends ConsumerState<GroupRunDashboardScreen> {
   GroupEntity? _selectedGroup;
+  bool _didAutoOpenSelectedGroup = false;
 
   @override
   void initState() {
@@ -48,7 +56,24 @@ class _GroupRunDashboardScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_selectedGroup == null && groups.isNotEmpty) {
-      _selectedGroup = groups.first;
+      _selectedGroup = groups.firstWhere(
+        (group) => group.id == widget.initialGroupId,
+        orElse: () => groups.first,
+      );
+    }
+
+    if (widget.autoOpenSelectedGroup &&
+        !_didAutoOpenSelectedGroup &&
+        _selectedGroup != null) {
+      _didAutoOpenSelectedGroup = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _selectedGroup == null) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GroupRunLiveScreen(group: _selectedGroup!),
+          ),
+        );
+      });
     }
 
     return Scaffold(

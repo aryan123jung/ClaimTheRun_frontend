@@ -1,5 +1,6 @@
 import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
+import 'package:clain_the_run/features/map/presentation/pages/group_run_dashboard_screen.dart';
 import 'package:clain_the_run/features/message/data/services/message_socket_service.dart';
 import 'package:clain_the_run/features/message/domain/entities/message_entities.dart';
 import 'package:clain_the_run/features/message/presentation/state/group_message_state.dart';
@@ -730,6 +731,16 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
                   memberCount: widget.memberCount,
                   selectedMode: _mode,
                   onBack: () => Navigator.of(context).pop(),
+                  onRunTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => GroupRunDashboardScreen(
+                          initialGroupId: widget.communityId,
+                          autoOpenSelectedGroup: true,
+                        ),
+                      ),
+                    );
+                  },
                   onModeChanged: (mode) {
                     setState(() {
                       _mode = mode;
@@ -966,6 +977,7 @@ class _GroupMessageHeader extends StatelessWidget {
     required this.memberCount,
     required this.selectedMode,
     required this.onBack,
+    required this.onRunTap,
     required this.onModeChanged,
   });
 
@@ -974,6 +986,7 @@ class _GroupMessageHeader extends StatelessWidget {
   final int memberCount;
   final GroupMessageMode selectedMode;
   final VoidCallback onBack;
+  final VoidCallback onRunTap;
   final ValueChanged<GroupMessageMode> onModeChanged;
 
   @override
@@ -1028,6 +1041,29 @@ class _GroupMessageHeader extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: onRunTap,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF3B6D11),
+                  side: const BorderSide(color: Color(0xFFCFE4BF)),
+                  backgroundColor: isDark
+                      ? const Color(0xFF111C26)
+                      : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+                icon: const Icon(Icons.directions_run_rounded, size: 18),
+                label: const Text(
+                  'Join Run',
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
