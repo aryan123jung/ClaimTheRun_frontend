@@ -249,6 +249,8 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   final Map<String, GroupRunParticipantSocketPayload> _activeParticipants =
       <String, GroupRunParticipantSocketPayload>{};
   final Map<String, Circle> _memberCircles = <String, Circle>{};
+  final Map<String, Line> _memberRouteLines = <String, Line>{};
+  final Map<String, List<LatLng>> _memberRoutePoints = <String, List<LatLng>>{};
   List<_ParticipantLabelPosition> _participantLabelPositions =
       const <_ParticipantLabelPosition>[];
   StreamSubscription<Position>? _positionSubscription;
@@ -459,6 +461,11 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       if (circle != null) {
         await controller.removeCircle(circle);
       }
+      final line = _memberRouteLines.remove(id);
+      if (line != null) {
+        await controller.removeLine(line);
+      }
+      _memberRoutePoints.remove(id);
     }
 
     for (final entry in _activeParticipants.entries) {
@@ -478,6 +485,62 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       } else {
         await controller.updateCircle(existing, options);
       }
+    }
+
+    await _syncRemoteParticipantRoutes();
+  }
+
+  Future<void> _syncRemoteParticipantRoutes() async {
+    final controller = _mapController;
+    if (!_isMapStyleReady || controller == null) return;
+
+    for (final entry in _memberRoutePoints.entries) {
+      final points = entry.value;
+      if (points.length < 2) continue;
+
+      final options = LineOptions(
+        geometry: List<LatLng>.from(points),
+        lineColor: '#4F7DFF',
+        lineWidth: 4,
+        lineOpacity: 0.72,
+        lineJoin: 'round',
+        lineBlur: 0.25,
+      );
+
+      final existing = _memberRouteLines[entry.key];
+      if (existing == null) {
+        _memberRouteLines[entry.key] = await controller.addLine(options);
+      } else {
+        await controller.updateLine(existing, options);
+      }
+    }
+  }
+
+  void _rememberRemoteRoutePoint(GroupRunParticipantSocketPayload participant) {
+    final authState = ref.read(authViewModelProvider);
+    final selfId = authState.authEntity?.id ?? '';
+    if (participant.userId.isEmpty || participant.userId == selfId) return;
+
+    final points = _memberRoutePoints.putIfAbsent(
+      participant.userId,
+      () => <LatLng>[],
+    );
+    if (points.isEmpty) {
+      points.add(participant.location);
+      return;
+    }
+
+    final last = points.last;
+    final segmentMeters = Geolocator.distanceBetween(
+      last.latitude,
+      last.longitude,
+      participant.location.latitude,
+      participant.location.longitude,
+    );
+    if (segmentMeters >= 3) {
+      points.add(participant.location);
+    } else {
+      points[points.length - 1] = participant.location;
     }
   }
 
@@ -529,6 +592,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       );
       for (final participant in participants) {
         _activeParticipants[participant.userId] = participant;
+        _rememberRemoteRoutePoint(participant);
       }
     });
     _syncRemoteParticipantMarkers();
@@ -542,6 +606,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     if (communityId != widget.group.id || !mounted) return;
     setState(() {
       _activeParticipants[participant.userId] = participant;
+      _rememberRemoteRoutePoint(participant);
     });
     _syncRemoteParticipantMarkers();
     _updateParticipantLabelPositions();
@@ -554,6 +619,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     if (communityId != widget.group.id || !mounted) return;
     setState(() {
       _activeParticipants[participant.userId] = participant;
+      _rememberRemoteRoutePoint(participant);
     });
     _syncRemoteParticipantMarkers();
     _updateParticipantLabelPositions();
@@ -563,6 +629,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     if (communityId != widget.group.id || !mounted) return;
     setState(() {
       _activeParticipants.remove(userId);
+      _memberRoutePoints.remove(userId);
     });
     _syncRemoteParticipantMarkers();
     _updateParticipantLabelPositions();
@@ -881,11 +948,11 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
             },
             compassEnabled: false,
             myLocationEnabled: false,
-            scrollGesturesEnabled: !_isActive,
-            zoomGesturesEnabled: !_isActive,
-            dragEnabled: !_isActive,
-            rotateGesturesEnabled: !_isActive,
-            tiltGesturesEnabled: !_isActive,
+            scrollGesturesEnabled: true,
+            zoomGesturesEnabled: true,
+            dragEnabled: true,
+            rotateGesturesEnabled: true,
+            tiltGesturesEnabled: true,
             onCameraMove: (_) {
               _updateParticipantLabelPositions();
             },
