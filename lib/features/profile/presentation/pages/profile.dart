@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:clain_the_run/app/theme_provider.dart';
 import 'package:clain_the_run/core/api/api_endpoints.dart';
+import 'package:clain_the_run/features/auth/presentation/pages/login_screen.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
 import 'package:clain_the_run/features/map/data/datasources/run_api_service.dart';
 import 'package:clain_the_run/features/map/data/models/run_record.dart';
@@ -16,6 +17,8 @@ import 'package:clain_the_run/features/social/presentation/widgets/postcard.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -860,7 +863,7 @@ PostModel _mapPostEntityToViewModel(PostEntity post) {
   );
 }
 
-class _ProfileDrawer extends StatelessWidget {
+class _ProfileDrawer extends ConsumerWidget {
   const _ProfileDrawer({
     required this.isDarkMode,
     required this.onThemeChanged,
@@ -869,8 +872,10 @@ class _ProfileDrawer extends StatelessWidget {
   final bool isDarkMode;
   final ValueChanged<bool> onThemeChanged;
 
+  static const _tokenKey = 'auth_token';
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
     return Drawer(
@@ -920,6 +925,51 @@ class _ProfileDrawer extends StatelessWidget {
                           ? const Color(0xFF9BA8B4)
                           : const Color(0xFF7B7B7B),
                     ),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    const storage = FlutterSecureStorage();
+                    final prefs = await SharedPreferences.getInstance();
+                    await storage.delete(key: _tokenKey);
+                    await prefs.remove(_tokenKey);
+                    ref.read(authViewModelProvider.notifier).resetState();
+                    if (!context.mounted) return;
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (_) => false,
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.logout_rounded,
+                    size: 20,
+                    color: Color(0xFFD64545),
+                  ),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFD64545),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(
+                      color: isDarkMode
+                          ? const Color(0xFF5A2626)
+                          : const Color(0xFFF0CACA),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    backgroundColor: isDarkMode
+                        ? const Color(0xFF1E1111)
+                        : const Color(0xFFFFF7F7),
                   ),
                 ),
               ),

@@ -31,6 +31,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _loadRecentRuns();
+    Future.microtask(
+      () => ref
+          .read(notificationViewModelProvider.notifier)
+          .loadNotifications(force: true),
+    );
   }
 
   Future<void> _loadRecentRuns() async {
