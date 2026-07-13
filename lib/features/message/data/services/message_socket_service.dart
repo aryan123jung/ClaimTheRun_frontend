@@ -536,7 +536,12 @@ class MessageSocketService {
   }
 
   void signalGroupVoice(Map<String, dynamic> payload) {
-    _socket?.emit('group:voice:signal', payload);
+    final socket = _socket;
+    if (socket?.connected == true) {
+      socket!.emit('group:voice:signal', payload);
+      return;
+    }
+    connect();
   }
 
   void joinGroupRun({
@@ -561,8 +566,8 @@ class MessageSocketService {
     };
     _pendingGroupRunJoins[trimmed] = payload;
     final socket = _socket;
-    if (socket != null) {
-      socket.emit('group:run:join', payload);
+    if (socket?.connected == true) {
+      socket!.emit('group:run:join', payload);
       return;
     }
 
@@ -581,8 +586,8 @@ class MessageSocketService {
       'longitude': location.longitude,
     };
     final socket = _socket;
-    if (socket != null) {
-      socket.emit('group:run:update', payload);
+    if (socket?.connected == true) {
+      socket!.emit('group:run:update', payload);
       return;
     }
     connect();
@@ -598,8 +603,8 @@ class MessageSocketService {
     final trimmed = communityId.trim();
     if (trimmed.isEmpty) return;
     final socket = _socket;
-    if (socket != null) {
-      socket.emit('group:run:start', trimmed);
+    if (socket?.connected == true) {
+      socket!.emit('group:run:start', trimmed);
       return;
     }
     connect();
@@ -609,8 +614,8 @@ class MessageSocketService {
     final trimmed = communityId.trim();
     if (trimmed.isEmpty) return;
     final socket = _socket;
-    if (socket != null) {
-      socket.emit('group:run:stop', trimmed);
+    if (socket?.connected == true) {
+      socket!.emit('group:run:stop', trimmed);
       return;
     }
     connect();

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:clain_the_run/features/auth/presentation/view_model/auth_view_model.dart';
+import 'package:clain_the_run/features/call/data/services/call_socket_service.dart';
 import 'package:clain_the_run/features/call/presentation/state/call_state.dart';
-import 'package:clain_the_run/features/message/data/services/message_socket_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -23,7 +23,7 @@ class CallViewModel extends Notifier<CallState> {
     ],
   };
 
-  late final MessageSocketService _socketService;
+  late final CallSocketService _socketService;
   final _uuid = const Uuid();
   final AudioPlayer _ringtonePlayer = AudioPlayer();
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
@@ -40,12 +40,11 @@ class CallViewModel extends Notifier<CallState> {
   CallState build() {
     // ignore: avoid_print
     print('[CallVM] build');
-    _socketService = ref.read(messageSocketServiceProvider);
+    _socketService = ref.read(callSocketServiceProvider);
     _bindSocketListeners();
     Future<void>.microtask(() async {
       await _localRenderer.initialize();
       await _remoteRenderer.initialize();
-      await _socketService.connect();
     });
     ref.onDispose(() async {
       await _stopRingtone();
@@ -151,7 +150,7 @@ class CallViewModel extends Notifier<CallState> {
       });
       await _peerConnection!.setLocalDescription(offer);
 
-      _socketService.inviteCall({
+      await _socketService.invite({
         'callId': callId,
         'callerId': selfId,
         'callerName': callerName,
@@ -161,7 +160,7 @@ class CallViewModel extends Notifier<CallState> {
         'createdAt': DateTime.now().toIso8601String(),
       });
 
-      _socketService.signalCall({
+      await _socketService.signal({
         'callId': callId,
         'fromUserId': selfId,
         'toUserId': friendId,
@@ -209,14 +208,14 @@ class CallViewModel extends Notifier<CallState> {
 
     await _applyPendingOffer();
     await _flushPendingCandidates();
-    _socketService.acceptCall({'callId': callId, 'callerId': participant.id});
+    await _socketService.accept({'callId': callId, 'callerId': participant.id});
   }
 
   Future<void> declineIncomingCall() async {
     final participant = state.participant;
     final callId = state.callId;
     if (participant != null && callId != null) {
-      _socketService.declineCall({
+      await _socketService.decline({
         'callId': callId,
         'callerId': participant.id,
       });
@@ -228,7 +227,10 @@ class CallViewModel extends Notifier<CallState> {
     final participant = state.participant;
     final callId = state.callId;
     if (participant != null && callId != null) {
-      _socketService.endCall({'callId': callId, 'otherUserId': participant.id});
+      await _socketService.end({
+        'callId': callId,
+        'otherUserId': participant.id,
+      });
     }
     await _endLocally();
   }
@@ -257,11 +259,11 @@ class CallViewModel extends Notifier<CallState> {
     _listenersBound = true;
     // ignore: avoid_print
     print('[CallVM] binding message socket call listeners');
-    _socketService.setOnCallIncoming(_handleIncomingCall);
-    _socketService.setOnCallAccepted(_handleAccepted);
-    _socketService.setOnCallDeclined(_handleDeclined);
-    _socketService.setOnCallEnded(_handleEnded);
-    _socketService.setOnCallSignal(_handleSignal);
+    _socketService.onIncomingCall = _handleIncomingCall;
+    _socketService.onAccepted = _handleAccepted;
+    _socketService.onDeclined = _handleDeclined;
+    _socketService.onEnded = _handleEnded;
+    _socketService.onSignal = _handleSignal;
   }
 
   void _handleIncomingCall(Map<String, dynamic> payload) {
@@ -387,17 +389,19 @@ class CallViewModel extends Notifier<CallState> {
         return;
       }
 
-      _socketService.signalCall({
-        'callId': callId,
-        'fromUserId': selfId,
-        'toUserId': participantId,
-        'data': {
-          'type': 'candidate',
-          'candidate': candidate.candidate,
-          'sdpMid': candidate.sdpMid,
-          'sdpMLineIndex': candidate.sdpMLineIndex,
-        },
-      });
+      unawaited(
+        _socketService.signal({
+          'callId': callId,
+          'fromUserId': selfId,
+          'toUserId': participantId,
+          'data': {
+            'type': 'candidate',
+            'candidate': candidate.candidate,
+            'sdpMid': candidate.sdpMid,
+            'sdpMLineIndex': candidate.sdpMLineIndex,
+          },
+        }),
+      );
     };
 
     connection.onConnectionState = (connectionState) {
@@ -511,7 +515,7 @@ class CallViewModel extends Notifier<CallState> {
     final selfId = state.selfId;
     final participantId = state.participant?.id;
     if (selfId != null && participantId != null) {
-      _socketService.signalCall({
+      await _socketService.signal({
         'callId': state.callId,
         'fromUserId': selfId,
         'toUserId': participantId,

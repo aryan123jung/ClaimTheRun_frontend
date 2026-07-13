@@ -32,7 +32,7 @@ class CallSocketService {
     print('[CallSocket] $message');
   }
 
-  Future<void> connect() async {
+  Future<void> connect({bool resetIndex = true}) async {
     if (_socket != null) {
       if (_socket!.connected) {
         _log('already connected');
@@ -46,6 +46,9 @@ class CallSocketService {
       return;
     }
     _isConnecting = true;
+    if (resetIndex) {
+      _socketUrlIndex = 0;
+    }
 
     final token = await _readToken();
     if (token == null || token.isEmpty) {
@@ -55,7 +58,13 @@ class CallSocketService {
       return;
     }
 
-    final socketBaseUrls = ApiEndpoints.candidateUploadBaseUrls;
+    final preferredBaseUrl = ApiEndpoints.uploadBaseUrl;
+    final socketBaseUrls = <String>[
+      preferredBaseUrl,
+      ...ApiEndpoints.candidateUploadBaseUrls.where(
+        (url) => url != preferredBaseUrl,
+      ),
+    ];
     final socketBaseUrl =
         socketBaseUrls[_socketUrlIndex.clamp(0, socketBaseUrls.length - 1)];
     _log(
@@ -182,7 +191,7 @@ class CallSocketService {
     _socketUrlIndex += 1;
     _isConnecting = false;
     _log('retrying with next socket host index=$_socketUrlIndex');
-    connect();
+    connect(resetIndex: false);
   }
 
   Future<void> _emitWhenConnected(

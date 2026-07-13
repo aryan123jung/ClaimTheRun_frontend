@@ -311,6 +311,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   final List<LatLng> _routePoints = <LatLng>[];
   GroupRunSessionSocketPayload? _activeSession;
   bool _isFinishingRun = false;
+  bool _hasResolvedInitialPresence = false;
 
   @override
   void initState() {
@@ -621,6 +622,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     );
     if (!mounted) return;
     setState(() {
+      _hasResolvedInitialPresence = true;
       _activeParticipants[selfId] = GroupRunParticipantSocketPayload(
         userId: selfId,
         name: self?.fullname ?? 'Runner',
@@ -670,6 +672,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     final authState = ref.read(authViewModelProvider);
     final selfId = authState.authEntity?.id ?? '';
     setState(() {
+      _hasResolvedInitialPresence = true;
       _activeParticipants.removeWhere(
         (userId, _) =>
             userId != selfId &&
@@ -690,6 +693,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   ) {
     if (communityId != widget.group.id || !mounted) return;
     setState(() {
+      _hasResolvedInitialPresence = true;
       _activeParticipants[participant.userId] = participant;
       _rememberRemoteRoutePoint(participant);
     });
@@ -703,6 +707,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   ) {
     if (communityId != widget.group.id || !mounted) return;
     setState(() {
+      _hasResolvedInitialPresence = true;
       _activeParticipants[participant.userId] = participant;
       _rememberRemoteRoutePoint(participant);
     });
@@ -713,6 +718,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   void _handleRunParticipantLeft(String communityId, String userId) {
     if (communityId != widget.group.id || !mounted) return;
     setState(() {
+      _hasResolvedInitialPresence = true;
       _activeParticipants.remove(userId);
       _memberRoutePoints.remove(userId);
     });
@@ -725,6 +731,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     final authState = ref.read(authViewModelProvider);
     final selfId = authState.authEntity?.id ?? '';
     setState(() {
+      _hasResolvedInitialPresence = true;
       _activeSession = session;
       if (!_isActive) {
         _runState = session.startedByUserId == selfId
@@ -742,13 +749,21 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     _positionSubscription = null;
     setState(() {
       _activeSession = null;
-      _activeParticipants.clear();
       _runState = _GroupRunState.ready;
       _elapsed = Duration.zero;
     });
   }
 
-  int get _activeMemberCount => _activeParticipants.length;
+  int get _displayActiveMemberCount {
+    if (_activeParticipants.isNotEmpty) {
+      return _activeParticipants.length;
+    }
+    if (!_hasResolvedInitialPresence &&
+        (_activeSession != null || _isActive || _isJoinable)) {
+      return 1;
+    }
+    return 0;
+  }
 
   Future<void> _updateParticipantLabelPositions() async {
     final controller = _mapController;
@@ -1213,7 +1228,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
               bottom: false,
               child: _SelectedGroupBar(
                 group: widget.group,
-                activeCount: _activeMemberCount,
+                activeCount: _displayActiveMemberCount,
                 onChangeGroup: availableGroups.isEmpty
                     ? null
                     : () => _openGroupSelector(availableGroups),

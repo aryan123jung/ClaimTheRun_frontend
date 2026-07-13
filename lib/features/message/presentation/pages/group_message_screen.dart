@@ -392,6 +392,16 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       );
       _logVoice('Remote offer description set for $senderUserId');
       _voiceRemoteDescriptionReady.add(senderUserId);
+      if (mounted) {
+        final current = _voiceParticipants[senderUserId];
+        if (current != null) {
+          setState(() {
+            _voiceParticipants[senderUserId] = current.copyWith(
+              isConnected: true,
+            );
+          });
+        }
+      }
       final answer = await connection.createAnswer({
         'offerToReceiveAudio': true,
         'offerToReceiveVideo': false,
@@ -419,6 +429,16 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       );
       _logVoice('Remote answer description set for $senderUserId');
       _voiceRemoteDescriptionReady.add(senderUserId);
+      if (mounted) {
+        final current = _voiceParticipants[senderUserId];
+        if (current != null) {
+          setState(() {
+            _voiceParticipants[senderUserId] = current.copyWith(
+              isConnected: true,
+            );
+          });
+        }
+      }
       await _flushPendingVoiceCandidates(senderUserId);
       return;
     }
@@ -483,6 +503,14 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
       await connection.setLocalDescription(offer);
       _logVoice('Local offer created for ${participant.userId}');
       _voiceOfferedPeers.add(participant.userId);
+      final current = _voiceParticipants[participant.userId];
+      if (current != null && mounted) {
+        setState(() {
+          _voiceParticipants[participant.userId] = current.copyWith(
+            isConnected: true,
+          );
+        });
+      }
 
       final authState = ref.read(authViewModelProvider);
       _messageSocketService.signalGroupVoice({
