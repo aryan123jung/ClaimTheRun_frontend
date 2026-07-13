@@ -21,6 +21,31 @@ import 'package:permission_handler/permission_handler.dart';
 
 enum _GroupRunState { ready, joinable, active }
 
+const List<Color> _groupRunParticipantPalette = <Color>[
+  Color(0xFF31C861),
+  Color(0xFF4F7DFF),
+  Color(0xFFFF8A3D),
+  Color(0xFFA855F7),
+  Color(0xFFF43F5E),
+  Color(0xFF14B8A6),
+];
+
+Color _groupRunParticipantColor(String userId) {
+  if (userId.isEmpty) {
+    return _groupRunParticipantPalette.first;
+  }
+  final hash = userId.codeUnits.fold<int>(
+    0,
+    (value, unit) => (value * 31 + unit) & 0x7fffffff,
+  );
+  return _groupRunParticipantPalette[hash % _groupRunParticipantPalette.length];
+}
+
+String _groupRunHexColor(Color color) {
+  final value = color.toARGB32() & 0x00FFFFFF;
+  return '#${value.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+}
+
 class GroupRunDashboardScreen extends ConsumerStatefulWidget {
   const GroupRunDashboardScreen({
     super.key,
@@ -286,7 +311,6 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
   final List<LatLng> _routePoints = <LatLng>[];
   GroupRunSessionSocketPayload? _activeSession;
   bool _isFinishingRun = false;
-  bool _hasJoinedPresence = false;
 
   @override
   void initState() {
@@ -365,13 +389,16 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     final controller = _mapController;
     final location = _currentUserLocation;
     if (!_isMapStyleReady || controller == null || location == null) return;
+    final authState = ref.read(authViewModelProvider);
+    final selfId = authState.authEntity?.id ?? '';
+    final userColorHex = _groupRunHexColor(_groupRunParticipantColor(selfId));
 
     if (_userLocationCircle == null) {
       _userLocationGlowCircle = await controller.addCircle(
         CircleOptions(
           geometry: location,
           circleRadius: 18,
-          circleColor: '#31C861',
+          circleColor: userColorHex,
           circleOpacity: 0.20,
           circleBlur: 0.65,
         ),
@@ -380,7 +407,7 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
         CircleOptions(
           geometry: location,
           circleRadius: 10,
-          circleColor: '#31C861',
+          circleColor: userColorHex,
           circleStrokeColor: '#FFFFFF',
           circleStrokeWidth: 4,
         ),
@@ -450,10 +477,12 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     if (!_isMapStyleReady || controller == null || _routePoints.length < 2) {
       return;
     }
+    final authState = ref.read(authViewModelProvider);
+    final selfId = authState.authEntity?.id ?? '';
 
     final options = LineOptions(
       geometry: List<LatLng>.from(_routePoints),
-      lineColor: '#31C861',
+      lineColor: _groupRunHexColor(_groupRunParticipantColor(selfId)),
       lineWidth: 5,
       lineOpacity: 0.94,
       lineJoin: 'round',
@@ -497,10 +526,13 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
       if (entry.key == selfId) continue;
       final participant = entry.value;
       final existing = _memberCircles[entry.key];
+      final participantColor = _groupRunHexColor(
+        _groupRunParticipantColor(entry.key),
+      );
       final options = CircleOptions(
         geometry: participant.location,
         circleRadius: 9,
-        circleColor: '#4F7DFF',
+        circleColor: participantColor,
         circleStrokeColor: '#FFFFFF',
         circleStrokeWidth: 3,
         circleOpacity: 0.95,
@@ -522,10 +554,13 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     for (final entry in _memberRoutePoints.entries) {
       final points = entry.value;
       if (points.length < 2) continue;
+      final participantColor = _groupRunHexColor(
+        _groupRunParticipantColor(entry.key),
+      );
 
       final options = LineOptions(
         geometry: List<LatLng>.from(points),
-        lineColor: '#4F7DFF',
+        lineColor: participantColor,
         lineWidth: 4,
         lineOpacity: 0.72,
         lineJoin: 'round',
@@ -586,7 +621,14 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     );
     if (!mounted) return;
     setState(() {
-      _hasJoinedPresence = true;
+      _activeParticipants[selfId] = GroupRunParticipantSocketPayload(
+        userId: selfId,
+        name: self?.fullname ?? 'Runner',
+        username: self?.username ?? 'runner',
+        avatarUrl: self?.profileUrl,
+        location: point,
+        updatedAt: DateTime.now(),
+      );
     });
   }
 
@@ -594,6 +636,20 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     final authState = ref.read(authViewModelProvider);
     final selfId = authState.authEntity?.id ?? '';
     if (selfId.isEmpty) return;
+
+    final self = authState.authEntity;
+    if (mounted) {
+      setState(() {
+        _activeParticipants[selfId] = GroupRunParticipantSocketPayload(
+          userId: selfId,
+          name: self?.fullname ?? 'Runner',
+          username: self?.username ?? 'runner',
+          avatarUrl: self?.profileUrl,
+          location: point,
+          updatedAt: DateTime.now(),
+        );
+      });
+    }
 
     _messageSocketService.updateGroupRunLocation(
       communityId: widget.group.id,
@@ -611,9 +667,13 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     List<GroupRunParticipantSocketPayload> participants,
   ) {
     if (communityId != widget.group.id || !mounted) return;
+    final authState = ref.read(authViewModelProvider);
+    final selfId = authState.authEntity?.id ?? '';
     setState(() {
       _activeParticipants.removeWhere(
-        (userId, _) => participants.every((item) => item.userId != userId),
+        (userId, _) =>
+            userId != selfId &&
+            participants.every((item) => item.userId != userId),
       );
       for (final participant in participants) {
         _activeParticipants[participant.userId] = participant;
@@ -682,14 +742,13 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
     _positionSubscription = null;
     setState(() {
       _activeSession = null;
-      _hasJoinedPresence = false;
+      _activeParticipants.clear();
       _runState = _GroupRunState.ready;
       _elapsed = Duration.zero;
     });
   }
 
-  int get _activeMemberCount =>
-      _activeParticipants.length + (_hasJoinedPresence ? 1 : 0);
+  int get _activeMemberCount => _activeParticipants.length;
 
   Future<void> _updateParticipantLabelPositions() async {
     final controller = _mapController;
@@ -1004,6 +1063,9 @@ class _GroupRunLiveScreenState extends ConsumerState<GroupRunLiveScreen> {
                           ),
                           child: _ParticipantUsernameChip(
                             username: '@${label.participant.username}',
+                            color: _groupRunParticipantColor(
+                              label.participant.userId,
+                            ),
                           ),
                         ),
                     ],
@@ -1856,8 +1918,8 @@ class _ActiveGroupMembersCard extends StatelessWidget {
                       Container(
                         width: 10,
                         height: 10,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF4F7DFF),
+                        decoration: BoxDecoration(
+                          color: _groupRunParticipantColor(participant.userId),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1894,9 +1956,10 @@ class _ParticipantLabelPosition {
 }
 
 class _ParticipantUsernameChip extends StatelessWidget {
-  const _ParticipantUsernameChip({required this.username});
+  const _ParticipantUsernameChip({required this.username, required this.color});
 
   final String username;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -1905,7 +1968,7 @@ class _ParticipantUsernameChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xEE111111),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x334F7DFF)),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       child: Text(
         username,
