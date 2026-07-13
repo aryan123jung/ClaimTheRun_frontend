@@ -318,6 +318,9 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
     if (communityId != widget.communityId || !mounted) return;
     _logVoice('User joined voice room: ${participant.userId}');
     _upsertVoiceParticipant(participant);
+    if (_shouldCreateVoiceOffer(participant.userId)) {
+      Future<void>.microtask(() => _createVoiceOffer(participant));
+    }
     setState(() {});
   }
 
@@ -353,6 +356,14 @@ class _GroupMessageScreenState extends ConsumerState<GroupMessageScreen> {
 
   Future<void> _handleVoiceSignal(Map<String, dynamic> payload) async {
     if (payload['communityId']?.toString() != widget.communityId) return;
+
+    if (!_isVoiceJoined && !_isVoiceConnecting) {
+      await _ensureVoiceMode();
+    }
+    if (!_isVoiceJoined) {
+      _logVoice('Ignoring voice signal because voice mode is not ready yet');
+      return;
+    }
 
     final senderUserId = payload['senderUserId']?.toString() ?? '';
     if (senderUserId.isEmpty) return;
