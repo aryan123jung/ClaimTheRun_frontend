@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clain_the_run/core/api/api_endpoints.dart';
 import 'package:clain_the_run/features/call/presentation/state/call_state.dart';
 import 'package:clain_the_run/features/call/presentation/view_model/call_view_model.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +42,7 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
     final secondaryTextColor = isDark
         ? const Color(0xFF9BA8B4)
         : const Color(0xFF6E6E6E);
+    final avatarUrl = _resolvedAvatarUrl(participant?.avatarUrl);
 
     return Scaffold(
       backgroundColor: isDark
@@ -65,10 +67,10 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
                   children: [
                     CircleAvatar(
                       radius: 58,
-                      backgroundImage: participant.avatarUrl.isNotEmpty
-                          ? NetworkImage(participant.avatarUrl)
+                      backgroundImage: avatarUrl != null
+                          ? NetworkImage(avatarUrl)
                           : null,
-                      child: participant.avatarUrl.isEmpty
+                      child: avatarUrl == null
                           ? Text(
                               participant.name.isNotEmpty
                                   ? participant.name[0].toUpperCase()
@@ -224,10 +226,10 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
                     const Spacer(),
                     CircleAvatar(
                       radius: 58,
-                      backgroundImage: participant.avatarUrl.isNotEmpty
-                          ? NetworkImage(participant.avatarUrl)
+                      backgroundImage: avatarUrl != null
+                          ? NetworkImage(avatarUrl)
                           : null,
-                      child: participant.avatarUrl.isEmpty
+                      child: avatarUrl == null
                           ? Text(
                               participant.name.isNotEmpty
                                   ? participant.name[0].toUpperCase()
@@ -334,6 +336,7 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
     required CallParticipant participant,
     required RTCVideoRenderer renderer,
   }) {
+    final avatarUrl = _resolvedAvatarUrl(participant.avatarUrl);
     if (renderer.srcObject != null) {
       return RTCVideoView(
         key: ValueKey(
@@ -350,10 +353,8 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
       child: Center(
         child: CircleAvatar(
           radius: 58,
-          backgroundImage: participant.avatarUrl.isNotEmpty
-              ? NetworkImage(participant.avatarUrl)
-              : null,
-          child: participant.avatarUrl.isEmpty
+          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+          child: avatarUrl == null
               ? Text(
                   participant.name.isNotEmpty
                       ? participant.name[0].toUpperCase()
@@ -388,6 +389,13 @@ class _CallSessionScreenState extends ConsumerState<CallSessionScreen> {
         child: Icon(Icons.videocam_off, color: Colors.white, size: 30),
       ),
     );
+  }
+
+  String? _resolvedAvatarUrl(String? rawAvatarUrl) {
+    if (rawAvatarUrl == null || rawAvatarUrl.trim().isEmpty) {
+      return null;
+    }
+    return ApiEndpoints.profileImageUrl(rawAvatarUrl.trim());
   }
 }
 

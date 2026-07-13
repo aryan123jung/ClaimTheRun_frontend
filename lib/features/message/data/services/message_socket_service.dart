@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'dart:async';
 
 final messageSocketServiceProvider = Provider<MessageSocketService>((ref) {
   final service = MessageSocketService();
@@ -64,6 +65,7 @@ class MessageSocketService {
       <String, Map<String, dynamic>>{};
   final Map<String, Map<String, dynamic>> _pendingGroupRunJoins =
       <String, Map<String, dynamic>>{};
+  final List<_PendingSocketEmit> _pendingCallEmits = <_PendingSocketEmit>[];
   io.Socket? _socket;
   void Function(MessageEntity message)? _onMessage;
   void Function(GroupMessageEntity message)? _onGroupMessage;
@@ -88,24 +90,54 @@ class MessageSocketService {
   void Function(String communityId, String userId)? _onGroupRunUserLeft;
   void Function(GroupRunSessionSocketPayload session)? _onGroupRunStarted;
   void Function(String communityId, String stoppedByUserId)? _onGroupRunStopped;
+  void Function(Map<String, dynamic> payload)? _onCallIncoming;
+  void Function(Map<String, dynamic> payload)? _onCallAccepted;
+  void Function(Map<String, dynamic> payload)? _onCallDeclined;
+  void Function(Map<String, dynamic> payload)? _onCallEnded;
+  void Function(Map<String, dynamic> payload)? _onCallSignal;
   bool _isConnecting = false;
   int _socketUrlIndex = 0;
+  Completer<void>? _connectCompleter;
+
+  void _log(String message) {
+    // ignore: avoid_print
+    print('[MessageSocket] $message');
+  }
 
   Future<void> connect() async {
     if (_socket != null) {
       if (_socket!.connected) {
         _flushPendingConversationJoins();
+        _flushPendingCallEmits();
         return;
+      }
+      if (_isConnecting && _connectCompleter != null) {
+        return _connectCompleter!.future.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            _log('connect wait timed out');
+          },
+        );
       }
       _socket!.dispose();
       _socket = null;
     }
-    if (_isConnecting) return;
+    if (_isConnecting && _connectCompleter != null) {
+      return _connectCompleter!.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          _log('connect wait timed out');
+        },
+      );
+    }
     _isConnecting = true;
+    _connectCompleter = Completer<void>();
 
     final token = await _readToken();
     if (token == null || token.isEmpty) {
       _isConnecting = false;
+      _connectCompleter?.complete();
+      _connectCompleter = null;
       return;
     }
 
@@ -123,26 +155,48 @@ class MessageSocketService {
           .build(),
     );
     _socket = socket;
+    _log('connecting to $socketBaseUrl candidates=$socketBaseUrls');
 
     socket.onConnect((_) {
       _isConnecting = false;
+      _log('connected as socketId=${socket.id}');
       _flushPendingConversationJoins();
+      _flushPendingCallEmits();
+      if (!(_connectCompleter?.isCompleted ?? true)) {
+        _connectCompleter?.complete();
+      }
+      _connectCompleter = null;
     });
 
-    socket.onConnectError((_) {
+    socket.onConnectError((error) {
+      _log('connect error on $socketBaseUrl: $error');
       _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
+      if (!(_connectCompleter?.isCompleted ?? true)) {
+        _connectCompleter?.completeError(error ?? 'Socket connection failed');
+      }
+      _connectCompleter = null;
     });
 
-    socket.onError((_) {
+    socket.onError((error) {
+      _log('socket error on $socketBaseUrl: $error');
       _tryNextSocketHost(socketBaseUrls);
       _isConnecting = false;
+      if (!(_connectCompleter?.isCompleted ?? true)) {
+        _connectCompleter?.completeError(error ?? 'Socket error');
+      }
+      _connectCompleter = null;
     });
 
-    socket.onDisconnect((_) {
+    socket.onDisconnect((reason) {
+      _log('disconnected: $reason');
       _socket?.dispose();
       _socket = null;
       _isConnecting = false;
+      if (!(_connectCompleter?.isCompleted ?? true)) {
+        _connectCompleter?.completeError('Socket disconnected: $reason');
+      }
+      _connectCompleter = null;
     });
 
     socket.on('message:new', (data) {
@@ -267,7 +321,42 @@ class MessageSocketService {
       );
     });
 
+    socket.on('call:incoming', (data) {
+      if (data is! Map) return;
+      _log('received call:incoming payload=$data');
+      _onCallIncoming?.call(Map<String, dynamic>.from(data));
+    });
+
+    socket.on('call:accepted', (data) {
+      if (data is! Map) return;
+      _log('received call:accepted payload=$data');
+      _onCallAccepted?.call(Map<String, dynamic>.from(data));
+    });
+
+    socket.on('call:declined', (data) {
+      if (data is! Map) return;
+      _onCallDeclined?.call(Map<String, dynamic>.from(data));
+    });
+
+    socket.on('call:ended', (data) {
+      if (data is! Map) return;
+      _log('received call:ended payload=$data');
+      _onCallEnded?.call(Map<String, dynamic>.from(data));
+    });
+
+    socket.on('call:signal', (data) {
+      if (data is! Map) return;
+      _log('received call:signal payload=$data');
+      _onCallSignal?.call(Map<String, dynamic>.from(data));
+    });
+
     socket.connect();
+    await _connectCompleter!.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        _log('connect wait timed out');
+      },
+    );
   }
 
   void joinConversation(String conversationId) {
@@ -367,6 +456,32 @@ class MessageSocketService {
     void Function(String communityId, String stoppedByUserId)? listener,
   ) {
     _onGroupRunStopped = listener;
+  }
+
+  void setOnCallIncoming(
+    void Function(Map<String, dynamic> payload)? listener,
+  ) {
+    _onCallIncoming = listener;
+  }
+
+  void setOnCallAccepted(
+    void Function(Map<String, dynamic> payload)? listener,
+  ) {
+    _onCallAccepted = listener;
+  }
+
+  void setOnCallDeclined(
+    void Function(Map<String, dynamic> payload)? listener,
+  ) {
+    _onCallDeclined = listener;
+  }
+
+  void setOnCallEnded(void Function(Map<String, dynamic> payload)? listener) {
+    _onCallEnded = listener;
+  }
+
+  void setOnCallSignal(void Function(Map<String, dynamic> payload)? listener) {
+    _onCallSignal = listener;
   }
 
   void joinGroup(String communityId) {
@@ -501,6 +616,66 @@ class MessageSocketService {
     connect();
   }
 
+  void inviteCall(Map<String, dynamic> payload) {
+    final socket = _socket;
+    if (socket?.connected == true) {
+      _log('emit call:invite payload=$payload');
+      socket!.emit('call:invite', payload);
+      return;
+    }
+    _pendingCallEmits.add(_PendingSocketEmit('call:invite', payload));
+    _log('queued call:invite payload=$payload');
+    connect();
+  }
+
+  void acceptCall(Map<String, dynamic> payload) {
+    final socket = _socket;
+    if (socket?.connected == true) {
+      _log('emit call:accept payload=$payload');
+      socket!.emit('call:accept', payload);
+      return;
+    }
+    _pendingCallEmits.add(_PendingSocketEmit('call:accept', payload));
+    _log('queued call:accept payload=$payload');
+    connect();
+  }
+
+  void declineCall(Map<String, dynamic> payload) {
+    final socket = _socket;
+    if (socket?.connected == true) {
+      _log('emit call:decline payload=$payload');
+      socket!.emit('call:decline', payload);
+      return;
+    }
+    _pendingCallEmits.add(_PendingSocketEmit('call:decline', payload));
+    _log('queued call:decline payload=$payload');
+    connect();
+  }
+
+  void endCall(Map<String, dynamic> payload) {
+    final socket = _socket;
+    if (socket?.connected == true) {
+      _log('emit call:end payload=$payload');
+      socket!.emit('call:end', payload);
+      return;
+    }
+    _pendingCallEmits.add(_PendingSocketEmit('call:end', payload));
+    _log('queued call:end payload=$payload');
+    connect();
+  }
+
+  void signalCall(Map<String, dynamic> payload) {
+    final socket = _socket;
+    if (socket?.connected == true) {
+      _log('emit call:signal payload=$payload');
+      socket!.emit('call:signal', payload);
+      return;
+    }
+    _pendingCallEmits.add(_PendingSocketEmit('call:signal', payload));
+    _log('queued call:signal payload=$payload');
+    connect();
+  }
+
   Future<String?> _readToken() async {
     var token = await _storage.read(key: _tokenKey);
     token ??= (await SharedPreferences.getInstance()).getString(_tokenKey);
@@ -512,10 +687,15 @@ class MessageSocketService {
     _socket = null;
     _isConnecting = false;
     _socketUrlIndex = 0;
+    if (!(_connectCompleter?.isCompleted ?? true)) {
+      _connectCompleter?.complete();
+    }
+    _connectCompleter = null;
     _pendingConversationJoins.clear();
     _pendingGroupJoins.clear();
     _pendingGroupVoiceJoins.clear();
     _pendingGroupRunJoins.clear();
+    _pendingCallEmits.clear();
   }
 
   void _flushPendingConversationJoins() {
@@ -533,6 +713,18 @@ class MessageSocketService {
     }
     for (final payload in _pendingGroupRunJoins.values) {
       socket!.emit('group:run:join', payload);
+    }
+  }
+
+  void _flushPendingCallEmits() {
+    final socket = _socket;
+    if (socket?.connected != true || _pendingCallEmits.isEmpty) return;
+
+    final pending = List<_PendingSocketEmit>.from(_pendingCallEmits);
+    _pendingCallEmits.clear();
+    for (final item in pending) {
+      _log('flush ${item.event} payload=${item.payload}');
+      socket!.emit(item.event, item.payload);
     }
   }
 
@@ -581,4 +773,11 @@ class MessageSocketService {
       startedAt: startedAt,
     );
   }
+}
+
+class _PendingSocketEmit {
+  const _PendingSocketEmit(this.event, this.payload);
+
+  final String event;
+  final Map<String, dynamic> payload;
 }

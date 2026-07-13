@@ -165,8 +165,8 @@ class ApiEndpoints {
         return;
       }
 
-      yield 'localhost';
       yield computerIpAddress;
+      yield 'localhost';
       return;
     }
 
